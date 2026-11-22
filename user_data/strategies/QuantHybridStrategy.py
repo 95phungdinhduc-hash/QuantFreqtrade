@@ -37,6 +37,8 @@ from freqtrade.strategy import (
 )
 
 from quant_core.indicators import add_quant_indicators, ema
+from quant_core.strategy_common import (add_market_regime, market_informative_pairs, market_long_ok,
+                                          market_short_ok)
 
 logger = logging.getLogger(__name__)
 
@@ -121,13 +123,17 @@ class QuantHybridStrategy(IStrategy):
         dataframe["ema_slow"] = ema(dataframe["close"], 50)
         return dataframe
 
+    def informative_pairs(self):
+        return market_informative_pairs(self.config)  # BTC khung ngày cho bộ lọc thị trường
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        return add_quant_indicators(
+        df = add_quant_indicators(
             dataframe,
             window=self.z_window,
             adf_window=self.adf_window,
             adf_step=self.adf_step,
         )
+        return add_market_regime(self.dp, df, self.config, self.timeframe)
 
     # ------------------------------------------------------------------ tín hiệu vào lệnh
     def _mean_rev_long(self, df: DataFrame):
@@ -159,9 +165,10 @@ class QuantHybridStrategy(IStrategy):
         )
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[self._mean_rev_long(dataframe), ["enter_long", "enter_tag"]] = (1, "mean_rev")
+        ok = market_long_ok(dataframe, self.config)  # BTC dưới SMA200 ngày -> không mở Long mới
+        dataframe.loc[self._mean_rev_long(dataframe) & ok, ["enter_long", "enter_tag"]] = (1, "mean_rev")
         if self.use_trend.value:
-            dataframe.loc[self._trend_long(dataframe), ["enter_long", "enter_tag"]] = (1, "trend")
+            dataframe.loc[self._trend_long(dataframe) & ok, ["enter_long", "enter_tag"]] = (1, "trend")
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -312,9 +319,10 @@ class QuantHybridFuturesStrategy(QuantHybridStrategy):
             & (df["z_score"] > -self.trend_max_z.value)
             & (df["volume"] > 0)
         )
-        dataframe.loc[mr_short, ["enter_short", "enter_tag"]] = (1, "mean_rev_short")
+        ok_short = market_short_ok(df, self.config)  # chỉ Short khi thị trường chung đang giảm
+        dataframe.loc[mr_short & ok_short, ["enter_short", "enter_tag"]] = (1, "mean_rev_short")
         if self.use_trend.value:
-            dataframe.loc[trend_short, ["enter_short", "enter_tag"]] = (1, "trend_short")
+            dataframe.loc[trend_short & ok_short, ["enter_short", "enter_tag"]] = (1, "trend_short")
         return dataframe
 
     def _sl_mult(self, tag: str | None) -> float:

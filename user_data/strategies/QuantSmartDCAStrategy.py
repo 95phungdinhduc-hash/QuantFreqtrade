@@ -27,7 +27,8 @@ from freqtrade.persistence import Trade
 from freqtrade.strategy import DecimalParameter, IntParameter, IStrategy, informative
 
 from quant_core.indicators import add_quant_indicators, ema, rsi
-from quant_core.strategy_common import QuantRiskMixin
+from quant_core.strategy_common import (QuantRiskMixin, add_market_regime, market_informative_pairs,
+                                          market_long_ok)
 
 # Tỷ lệ mỗi lần mua: lần 1 = 1 phần, lần 2 = 1 phần, lần 3 = 1,5 phần
 DCA_UNITS = (1.0, 1.0, 1.5)
@@ -64,10 +65,13 @@ class QuantSmartDCAStrategy(QuantRiskMixin, IStrategy):
         dataframe["ema_slow"] = ema(dataframe["close"], 50)
         return dataframe
 
+    def informative_pairs(self):
+        return market_informative_pairs(self.config)  # BTC khung ngày cho bộ lọc thị trường
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         df = add_quant_indicators(dataframe, with_adf=False)
         df["rsi"] = rsi(df["close"])
-        return df
+        return add_market_regime(self.dp, df, self.config, self.timeframe)
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         df = dataframe
@@ -79,6 +83,7 @@ class QuantSmartDCAStrategy(QuantRiskMixin, IStrategy):
             & (df["close"] > df["ema_slow_4h"] * (1 - self.max_below_4h.value))
             & (df["volume"] > 0)
         )
+        cond &= market_long_ok(df, self.config)  # BTC dưới SMA200 ngày -> đứng ngoài
         df.loc[cond, ["enter_long", "enter_tag"]] = (1, "dca")
         return df
 

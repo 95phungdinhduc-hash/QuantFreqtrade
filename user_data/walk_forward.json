@@ -1,5 +1,6 @@
 {
-  "generated": "2026-11-22T23:06:41",
+  "generated": "2026-11-22T23:14:12",
+  "market_filter": true,
   "windows": [
     {
       "timerange": "20241201-20250601",
@@ -55,121 +56,121 @@
     ],
     "QuantHybridStrategy": [
       {
-        "profit_pct": -8.57,
-        "max_dd_pct": 14.54,
-        "trades": 31,
-        "winrate": 38.7,
+        "profit_pct": -10.51,
+        "max_dd_pct": 14.35,
+        "trades": 26,
+        "winrate": 34.6,
         "market_pct": -11.39
       },
       {
-        "profit_pct": 4.12,
+        "profit_pct": 3.6,
         "max_dd_pct": 3.72,
-        "trades": 24,
-        "winrate": 50.0,
+        "trades": 23,
+        "winrate": 47.8,
         "market_pct": 1.08
       },
       {
-        "profit_pct": -9.64,
-        "max_dd_pct": 10.64,
-        "trades": 17,
-        "winrate": 47.1,
+        "profit_pct": 0.0,
+        "max_dd_pct": 0,
+        "trades": 0,
+        "winrate": 0.0,
         "market_pct": -23.48
       },
       {
-        "profit_pct": -6.09,
-        "max_dd_pct": 6.09,
-        "trades": 15,
-        "winrate": 40.0,
+        "profit_pct": -1.41,
+        "max_dd_pct": 2.43,
+        "trades": 4,
+        "winrate": 50.0,
         "market_pct": -18.15
       }
     ],
     "QuantBreakoutStrategy": [
       {
-        "profit_pct": -5.58,
-        "max_dd_pct": 10.47,
-        "trades": 55,
-        "winrate": 34.5,
+        "profit_pct": -10.06,
+        "max_dd_pct": 11.39,
+        "trades": 47,
+        "winrate": 29.8,
         "market_pct": -11.39
       },
       {
-        "profit_pct": -2.41,
+        "profit_pct": 0.19,
         "max_dd_pct": 10.74,
-        "trades": 82,
-        "winrate": 31.7,
+        "trades": 79,
+        "winrate": 32.9,
         "market_pct": 1.08
       },
       {
-        "profit_pct": -27.03,
-        "max_dd_pct": 28.16,
-        "trades": 62,
-        "winrate": 22.6,
+        "profit_pct": 0.0,
+        "max_dd_pct": 0,
+        "trades": 0,
+        "winrate": 0.0,
         "market_pct": -23.48
       },
       {
-        "profit_pct": -1.03,
-        "max_dd_pct": 10.22,
-        "trades": 46,
-        "winrate": 34.8,
+        "profit_pct": 2.28,
+        "max_dd_pct": 4.46,
+        "trades": 23,
+        "winrate": 39.1,
         "market_pct": -18.15
       }
     ],
     "QuantSmartDCAStrategy": [
       {
-        "profit_pct": -7.45,
-        "max_dd_pct": 9.36,
-        "trades": 81,
-        "winrate": 74.1,
+        "profit_pct": -7.19,
+        "max_dd_pct": 8.48,
+        "trades": 69,
+        "winrate": 72.5,
         "market_pct": -11.39
       },
       {
-        "profit_pct": -0.41,
-        "max_dd_pct": 3.6,
-        "trades": 77,
-        "winrate": 88.3,
+        "profit_pct": -0.02,
+        "max_dd_pct": 2.63,
+        "trades": 65,
+        "winrate": 89.2,
         "market_pct": 1.08
       },
       {
-        "profit_pct": -2.29,
-        "max_dd_pct": 6.1,
-        "trades": 82,
-        "winrate": 86.6,
+        "profit_pct": 0.0,
+        "max_dd_pct": 0,
+        "trades": 0,
+        "winrate": 0.0,
         "market_pct": -23.48
       },
       {
-        "profit_pct": -2.54,
-        "max_dd_pct": 3.94,
-        "trades": 87,
-        "winrate": 89.7,
+        "profit_pct": -0.5,
+        "max_dd_pct": 2.37,
+        "trades": 39,
+        "winrate": 92.3,
         "market_pct": -18.15
       }
     ],
     "QuantHybridFuturesStrategy": [
       {
-        "profit_pct": -21.37,
-        "max_dd_pct": 22.45,
-        "trades": 56,
-        "winrate": 35.7,
+        "profit_pct": -18.29,
+        "max_dd_pct": 20.18,
+        "trades": 29,
+        "winrate": 24.1,
         "market_pct": -11.49
       },
       {
-        "profit_pct": -2.53,
-        "max_dd_pct": 8.61,
-        "trades": 49,
-        "winrate": 38.8,
+        "profit_pct": 6.04,
+        "max_dd_pct": 5.4,
+        "trades": 27,
+        "winrate": 44.4,
         "market_pct": 1.08
       },
       {
-        "profit_pct": -7.0,
-        "max_dd_pct": 10.07,
-        "trades": 58,
-        "winrate": 39.7,
+        "profit_pct": 2.22,
+        "max_dd_pct": 6.0,
+        "trades": 39,
+        "winrate": 41.0,
         "market_pct": -23.47
       },
       {
-        "profit_pct": -8.64,
-        "max_dd_pct": 12.32,
-        "trades": 36,
-        "winrate": 47.2,
+        "profit_pct": -2.39,
+        "max_dd_pct": 4.05,
+        "trades": 17,
+        "winrate": 58.8,
         "market_pct": -18.17
       }
     ]
@@ -186,29 +187,29 @@
       "profitable": 1,
       "beat_market": 4,
       "n": 4,
-      "sum_profit_pct": -20.18,
-      "worst_dd_pct": 14.54
+      "sum_profit_pct": -8.32,
+      "worst_dd_pct": 14.35
     },
     "QuantBreakoutStrategy": {
-      "profitable": 0,
-      "beat_market": 2,
+      "profitable": 2,
+      "beat_market": 3,
       "n": 4,
-      "sum_profit_pct": -36.05,
-      "worst_dd_pct": 28.16
+      "sum_profit_pct": -7.59,
+      "worst_dd_pct": 11.39
     },
     "QuantSmartDCAStrategy": {
       "profitable": 0,
       "beat_market": 3,
       "n": 4,
-      "sum_profit_pct": -12.69,
-      "worst_dd_pct": 9.36
+      "sum_profit_pct": -7.71,
+      "worst_dd_pct": 8.48
     },
     "QuantHybridFuturesStrategy": {
-      "profitable": 0,
-      "beat_market": 2,
+      "profitable": 2,
+      "beat_market": 3,
       "n": 4,
-      "sum_profit_pct": -39.54,
-      "worst_dd_pct": 22.45
+      "sum_profit_pct": -12.42,
+      "worst_dd_pct": 20.18
     }
   }
 }

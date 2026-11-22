@@ -45,18 +45,24 @@ Hoặc VS Code → `Cmd + Shift + P` → **Tasks: Run Task** → **▶️ BẬT 
 - **Cả 4 bot đều nhắn Telegram** khi vào/thoát lệnh (tin có tên bot, ví dụ `🟢 [Breakout] VÀO LỆNH…`).
 - **Chỉ bot Hybrid nhận lệnh** `/status`, `/profit`… Các bot khác xem chi tiết trên web hoặc dashboard.
 
-**Kết quả kiểm chứng 2 năm** (12/2024 – 11/2026, thị trường **giảm 42%**, chạy lại: `./run.sh validate`):
+**Bộ lọc thị trường (đang BẬT):** BTC đóng cửa ngày **dưới SMA200 ngày** → thị trường chung đang giảm →
+3 bot Spot **không mở lệnh Long mới**, bot Futures **chỉ được Short**. Trạng thái hiện tại xem ở dashboard
+(tab 🏠 và 🧭). Tắt bộ lọc: sửa `"market_filter": true` thành `false` trong `user_data/config.json` và
+`config.futures.json`, rồi `./run.sh restart`.
 
-| Chiến lược | Cả 2 năm | Sụt vốn tối đa | Giai đoạn 6 tháng có lãi | Thắng "mua & giữ" |
+**Kết quả 2 năm** (12/2024 – 11/2026, thị trường **giảm 42%**, chạy lại: `./run.sh validate`):
+
+| Chiến lược | Không lọc | **Có bộ lọc** | Sụt vốn tối đa (có lọc) | Giai đoạn 6 tháng có lãi |
 |---|---|---|---|---|
-| Smart DCA | −11,9% | 13,0% | 0 / 4 | 3 / 4 |
-| Hybrid | −19,2% | 19,2% | 1 / 4 | **4 / 4** |
-| Breakout | −33,5% | 39,2% | 0 / 4 | 2 / 4 |
-| Futures | −34,4% | 37,0% | 0 / 4 | 2 / 4 |
-| Z-Score gốc | −44,7% | 54,3% | 1 / 4 | 2 / 4 |
+| Smart DCA | −11,9% | **−7,2%** | 8,5% | 0 / 4 |
+| Breakout | −33,5% | **−7,8%** | 18,6% | 2 / 4 |
+| Hybrid | −19,2% | **−8,6%** | 14,4% | 1 / 4 |
+| Futures | −34,4% | **−13,8%** | 21,7% | 2 / 4 |
+| Z-Score gốc (không có lọc) | −44,7% | — | 54,3% | 1 / 4 |
 
-→ **Chưa chiến lược nào có lãi ổn định. Chỉ chạy tiền ảo.** Hybrid và Smart DCA lỗ ít hơn thị trường rõ rệt,
-nhưng "lỗ ít hơn" chưa phải là "có lãi". Chi tiết từng giai đoạn: dashboard → tab 📊 Backtest.
+→ Bộ lọc giảm lỗ **2–4 lần**. Trong giai đoạn giảm mạnh nhất (12/2025 – 6/2026, thị trường −23,5%), các bot Spot
+đứng ngoài hoàn toàn (0%). **Nhưng vẫn chưa chiến lược nào có lãi ổn định → chỉ chạy tiền ảo.**
+Chi tiết từng giai đoạn (có/không lọc): dashboard → tab 📊 Backtest.
 
 ---
 

@@ -334,10 +334,10 @@ main() {
         import)    "$PY" tools/import_legacy_db.py "$@" ;;
         download)
           local days="${1:-365}"; shift || true
-          "$FT" download-data -c "$CFG" --days "$days" -t 15m 1h 4h "$@" ;;
+          "$FT" download-data -c "$CFG" --days "$days" -t 15m 1h 4h 1d "$@" ;;
         download-futures)
           local days="${1:-365}"; shift || true
-          "$FT" download-data -c "$CFG_FUT" --days "$days" -t 1h 4h "$@" ;;
+          "$FT" download-data -c "$CFG_FUT" --days "$days" -t 1h 4h 1d "$@" ;;
         backtest)
           "$FT" backtesting -c "$CFG" --strategy-list QuantZScoreStrategy QuantHybridStrategy \
             --timeframe-detail 15m --export trades --breakdown month "$@" ;;

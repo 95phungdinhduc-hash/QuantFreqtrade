@@ -76,6 +76,13 @@ def run_bt(config: str, strategies: list[str], timerange: str, outdir: Path) -> 
 
 
 def main() -> None:
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default=str(OUT), help="file JSON kết quả")
+    out = Path(ap.parse_args().out)
+    mf = os.environ.get("FREQTRADE__QUANT__MARKET_FILTER", "true").lower() not in ("false", "0")
+    print(f"Bộ lọc thị trường (BTC < SMA200 ngày thì đứng ngoài): {'BẬT' if mf else 'TẮT'}")
     first = data_start(ROOT / "user_data/data/binance/BTC_USDT-1h.feather")
     end = date.today()
     wins = windows(first, end)
@@ -83,7 +90,8 @@ def main() -> None:
         raise SystemExit("Chưa đủ dữ liệu — chạy ./run.sh download 730 --prepend trước.")
     print(f"Kiểm chứng {len(wins)} giai đoạn từ {wins[0][0]} đến {wins[-1][1]}\n")
 
-    result = {"generated": datetime.now().isoformat(timespec="seconds"), "windows": [], "strategies": {}}
+    result = {"generated": datetime.now().isoformat(timespec="seconds"), "market_filter": mf,
+              "windows": [], "strategies": {}}
     for i, (a, b) in enumerate(wins, 1):
         tr = f"{a}-{b}"
         print(f"[{i}/{len(wins)}] {a[:4]}-{a[4:6]} → {b[:4]}-{b[4:6]} ...", flush=True)
@@ -108,8 +116,8 @@ def main() -> None:
                                                   "sum_profit_pct": round(total, 2), "worst_dd_pct": worst}
         print(f"  {name:28s} lãi {prof}/{len(rs)} · thắng thị trường {beat}/{len(rs)} · "
               f"tổng {total:+.1f}% · sụt vốn tệ nhất {worst:.1f}%")
-    OUT.write_text(json.dumps(result, ensure_ascii=False, indent=2))
-    print(f"\nĐã lưu {OUT.relative_to(ROOT)} — xem trên dashboard tab 📊 Backtest.")
+    out.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    print(f"\nĐã lưu {out} — xem trên dashboard tab 📊 Backtest.")
 
 
 if __name__ == "__main__":

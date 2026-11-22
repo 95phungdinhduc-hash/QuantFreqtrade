@@ -16,7 +16,8 @@
     "quant": {
         "risk_pct": 1.5,
         "sync_risk_from_dashboard": true,
-        "news_filter": true
+        "news_filter": true,
+        "market_filter": true
     },
     "unfilledtimeout": {
         "entry": 10,

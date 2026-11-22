@@ -26,7 +26,8 @@ from freqtrade.persistence import Trade
 from freqtrade.strategy import DecimalParameter, IStrategy, informative, stoploss_from_absolute
 
 from quant_core.indicators import add_quant_indicators, donchian, ema
-from quant_core.strategy_common import QuantRiskMixin
+from quant_core.strategy_common import (QuantRiskMixin, add_market_regime, market_informative_pairs,
+                                          market_long_ok)
 
 
 class QuantBreakoutStrategy(QuantRiskMixin, IStrategy):
@@ -64,12 +65,15 @@ class QuantBreakoutStrategy(QuantRiskMixin, IStrategy):
         dataframe["ema_rising"] = (dataframe["ema_slow"] > dataframe["ema_slow"].shift(6)).astype(int)
         return dataframe
 
+    def informative_pairs(self):
+        return market_informative_pairs(self.config)  # BTC khung ngày cho bộ lọc thị trường
+
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         df = add_quant_indicators(dataframe)
         df["dc_high"], _ = donchian(df, self.dc_entry_period)
         _, df["dc_low_exit"] = donchian(df, self.dc_exit_period)
         df["vol_ratio"] = df["volume"] / df["volume"].rolling(48).mean().shift(1)
-        return df
+        return add_market_regime(self.dp, df, self.config, self.timeframe)
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         df = dataframe
@@ -83,6 +87,7 @@ class QuantBreakoutStrategy(QuantRiskMixin, IStrategy):
             & (df["z_score"] < self.max_z.value)               # chưa quá xa trung bình
             & (df["volume"] > 0)
         )
+        cond &= market_long_ok(df, self.config)  # BTC dưới SMA200 ngày -> đứng ngoài
         df.loc[cond, ["enter_long", "enter_tag"]] = (1, "breakout")
         return df
 

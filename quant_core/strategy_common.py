@@ -16,6 +16,66 @@ from datetime import datetime, timedelta, timezone
 logger = logging.getLogger(__name__)
 
 
+# ------------------------------------------------------------------ bộ lọc thị trường chung
+# "Thị trường giảm thì đứng ngoài": BTC đóng cửa ngày dưới SMA200 ngày => thị trường crypto đang
+# trong xu hướng giảm dài hạn => không mở lệnh LONG mới (Futures: chỉ cho SHORT khi thị trường giảm).
+# Bật/tắt trong config: "quant": {"market_filter": true}  (hoặc FREQTRADE__QUANT__MARKET_FILTER=false)
+MARKET_TF = "1d"
+MARKET_SMA = 200
+
+
+def market_pair(config: dict) -> str:
+    stake = config.get("stake_currency", "USDT")
+    return f"BTC/{stake}:{stake}" if config.get("trading_mode") == "futures" else f"BTC/{stake}"
+
+
+def market_filter_on(config: dict) -> bool:
+    return bool(config.get("quant", {}).get("market_filter", True))
+
+
+def market_informative_pairs(config: dict) -> list[tuple[str, str]]:
+    return [(market_pair(config), MARKET_TF)] if market_filter_on(config) else []
+
+
+def add_market_regime(dp, dataframe, config: dict, timeframe: str):
+    """
+    Thêm cột `market_up` (1 = BTC trên SMA200 ngày, 0 = dưới) vào DataFrame của mọi cặp.
+    Dùng nến NGÀY ĐÃ ĐÓNG (merge_informative_pair dịch thời gian) -> không look-ahead.
+    Thiếu dữ liệu (chưa đủ 200 ngày) -> 1 (không chặn).
+    """
+    from freqtrade.strategy import merge_informative_pair
+
+    dataframe["market_up"] = 1.0
+    if not market_filter_on(config) or dp is None:
+        return dataframe
+    inf = dp.get_pair_dataframe(market_pair(config), MARKET_TF)
+    if inf is None or inf.empty:
+        return dataframe
+    inf = inf[["date", "close"]].copy()
+    sma = inf["close"].rolling(MARKET_SMA).mean()
+    inf["mkt"] = (inf["close"] > sma).astype(float).where(sma.notna())
+    merged = merge_informative_pair(dataframe.drop(columns=["market_up"]), inf[["date", "mkt"]],
+                                    timeframe, MARKET_TF, ffill=True)
+    merged["market_up"] = merged[f"mkt_{MARKET_TF}"].fillna(1.0)
+    return merged.drop(columns=[f"mkt_{MARKET_TF}", f"date_{MARKET_TF}"], errors="ignore")
+
+
+def market_long_ok(dataframe, config: dict):
+    import pandas as pd
+
+    if not market_filter_on(config):
+        return pd.Series(True, index=dataframe.index)
+    return dataframe["market_up"] >= 0.5
+
+
+def market_short_ok(dataframe, config: dict):
+    import pandas as pd
+
+    if not market_filter_on(config):
+        return pd.Series(True, index=dataframe.index)
+    return dataframe["market_up"] < 0.5
+
+
 class QuantRiskMixin:
     default_risk_pct = 1.5
     news_block_score = -4

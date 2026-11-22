@@ -93,3 +93,28 @@ def test_walk_forward_windows_cover_range():
     assert w[0][0] == "20241201" and w[-1][1] == "20261122"
     assert all(a < b for a, b in w)
     assert all(w[i][1] == w[i + 1][0] for i in range(len(w) - 1))  # liền mạch, không chồng lấn
+
+
+def test_market_filter_uses_only_closed_daily_candles():
+    """BTC vượt SMA200 vào ngày D -> chỉ nến 1h đóng cửa cuối ngày D trở đi mới thấy market_up = 1."""
+    from quant_core.strategy_common import add_market_regime
+
+    days = pd.date_range("2025-01-01", periods=260, freq="1D", tz="UTC")
+    close = np.full(260, 100.0)
+    close[-1] = 1000.0                       # chỉ ngày cuối cùng vượt hẳn SMA200
+    daily = pd.DataFrame({"date": days, "open": close, "high": close, "low": close, "close": close,
+                          "volume": 1.0})
+
+    class FakeDP:
+        def get_pair_dataframe(self, pair, timeframe):
+            return daily
+
+    hours = pd.date_range(days[-2], days[-1] + pd.Timedelta(hours=23), freq="1h", tz="UTC")
+    h = pd.DataFrame({"date": hours, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 1.0})
+    cfg = {"stake_currency": "USDT", "quant": {"market_filter": True}}
+    out = add_market_regime(FakeDP(), h, cfg, "1h").set_index("date")["market_up"]
+    last_day = days[-1]
+    assert (out[out.index < last_day + pd.Timedelta(hours=23)] == 0).all()   # trước khi ngày D đóng cửa
+    assert out[last_day + pd.Timedelta(hours=23)] == 1                        # nến 1h cuối ngày D
+    cfg["quant"]["market_filter"] = False
+    assert (add_market_regime(FakeDP(), h, cfg, "1h")["market_up"] == 1).all()

@@ -103,6 +103,28 @@ def market_frame(pair: str, window: int) -> tuple[pd.DataFrame, str]:
     return add_quant_indicators(df.reset_index(drop=True), window=window), src
 
 
+@st.cache_data(ttl=900, show_spinner=False)
+def market_regime() -> dict | None:
+    """Bộ lọc thị trường của bot: BTC đóng cửa ngày (nến đã đóng) so với SMA200 ngày."""
+    try:
+        d = fetch_live_ohlcv("BTC/USDT", "1d", limit=260).iloc[:-1]
+    except Exception:
+        d = load_ohlcv("BTC/USDT", "1d")
+    if d is None or len(d) < 200:
+        return None
+    close, sma = float(d["close"].iloc[-1]), float(d["close"].rolling(200).mean().iloc[-1])
+    return {"close": close, "sma": sma, "up": close > sma, "gap": (close / sma - 1) * 100,
+            "date": d["date"].iloc[-1]}
+
+
+def market_filter_enabled() -> bool:
+    try:
+        return bool(json.loads((settings.USER_DATA / "config.json").read_text())
+                    .get("quant", {}).get("market_filter", True))
+    except Exception:
+        return True
+
+
 @st.cache_data(ttl=20, show_spinner=False)
 def bot_snapshot(url: str) -> dict | None:
     client = FreqtradeClient(url=url, timeout=3)
@@ -111,7 +133,8 @@ def bot_snapshot(url: str) -> dict | None:
     try:
         return {"cfg": client.show_config(), "profit": client.profit(), "open": client.status()}
     except Exception as e:
-        return {"error": str(e)}
+        auth = "401" in str(e) or "403" in str(e)
+        return {"error": str(e), "auth": auth}
 
 
 def latest_backtest(strategy: str = "QuantHybridStrategy") -> Path | None:
@@ -268,10 +291,17 @@ def render_hero(pairs: list[str], snap: dict | None, bt: dict | None, sentiment:
         bot_pill = (f'<span class="pill"><span class="dot on"></span>Bot đang chạy · '
                     f'{"DRY-RUN" if cfg.get("dry_run") else "LIVE"} · {ui.esc(str(cfg.get("trading_mode")))}</span>')
     elif snap:
-        bot_pill = '<span class="pill"><span class="dot warn"></span>Bot chạy nhưng sai mật khẩu API</span>'
+        bot_pill = ('<span class="pill"><span class="dot warn"></span>'
+                    + ("Bot chạy nhưng sai mật khẩu API" if snap.get("auth") else "Bot đang khởi động…")
+                    + '</span>')
     else:
         bot_pill = '<span class="pill"><span class="dot off"></span>Bot chưa chạy</span>'
     session = market_context.trading_session()
+    mr = market_regime() if market_filter_enabled() else None
+    mkt_pill = "" if mr is None else (
+        f'<span class="pill"><span class="dot {"on" if mr["up"] else "off"}"></span>'
+        f'BTC {"trên" if mr["up"] else "dưới"} SMA200 ngày ({mr["gap"]:+.1f}%) · '
+        f'{"bot được mở Long" if mr["up"] else "bot đứng ngoài lệnh Long"}</span>')
     hybrid = next((r for r in (bt or {}).get("rows", []) if r["name"] == "QuantHybridStrategy"), None)
     dd_stat = (f'<div class="v">{hybrid["dd"]:.1f}%</div><div class="s">sụt vốn tối đa khi backtest</div>'
                if hybrid else '<div class="v">—</div><div class="s">chạy ./run.sh backtest</div>')
@@ -285,7 +315,7 @@ def render_hero(pairs: list[str], snap: dict | None, bt: dict | None, sentiment:
         <b>% rủi ro</b> bạn đặt. Mọi tín hiệu đều kiểm chứng được bằng backtest.</p>
         <div class="pills">{bot_pill}
           <span class="pill">🕒 {ui.esc(session)}</span>
-          <span class="pill">📰 Tin tức: {ui.esc(sentiment)}</span></div>
+          <span class="pill">📰 Tin tức: {ui.esc(sentiment)}</span>{mkt_pill}</div>
         <div class="cta">
           <a class="btn primary" href="#tin-hieu">Xem tín hiệu hôm nay ↓</a>
           <a class="btn ghost" href="http://127.0.0.1:8080" target="_blank">Mở bot FreqUI ↗</a>
@@ -556,6 +586,19 @@ def render_advisor() -> None:
         ui.empty_state("📡", "Không có dữ liệu", "Kiểm tra mạng hoặc tải dữ liệu ở thanh bên.")
         return
     evidence = strategy_evidence()
+
+    # ---- bộ lọc thị trường của bot
+    mr = market_regime()
+    if mr is not None:
+        on = market_filter_enabled()
+        state = ("🟢 Thị trường chung đang TĂNG (BTC trên SMA200 ngày) → các bot được phép mở lệnh Long."
+                 if mr["up"] else
+                 "🔴 Thị trường chung đang GIẢM (BTC dưới SMA200 ngày) → các bot Spot <b>đứng ngoài</b>, "
+                 "không mở lệnh Long mới; bot Futures chỉ được Short.")
+        H(f"""<div class="zone" style="margin-top:14px;font-weight:500;color:var(--text)">
+          <b>Bộ lọc thị trường {'(đang BẬT)' if on else '(đang TẮT)'}:</b> {state}<br>
+          <span style="color:var(--text2)">BTC đóng cửa ngày {mr['date']:%d/%m}: {ui.fmt_px(mr['close'])} ·
+          SMA200 ngày: {ui.fmt_px(mr['sma'])} · cách {mr['gap']:+.1f}%</span></div>""")
 
     # ---- nhiệt kế thị trường
     label, kind = advisor.mood([a.score for a in items])
@@ -1040,11 +1083,16 @@ SHORT_NAMES = {"QuantZScoreStrategy": "Z-Score gốc", "QuantHybridStrategy": "H
 
 
 def render_walk_forward() -> None:
-    wf_file = settings.USER_DATA / "walk_forward.json"
     ui.section("🧪 Kiểm chứng theo giai đoạn (walk-forward)",
                "Cùng một bộ tham số chạy riêng trên <b>từng 6 tháng</b>. Chiến lược đáng tin phải ổn định qua "
                "nhiều kiểu thị trường, không chỉ đẹp ở một giai đoạn may mắn.",
                aside="Chạy lại: <code>./run.sh validate</code>")
+    files = {"Có bộ lọc thị trường": settings.USER_DATA / "walk_forward.json",
+             "Không lọc (để so sánh)": settings.USER_DATA / "walk_forward_nofilter.json"}
+    avail = [k for k, f in files.items() if f.exists()]
+    choice = st.segmented_control("Phiên bản", avail, default=avail[0] if avail else None,
+                                  key="wf_choice", label_visibility="collapsed") if len(avail) > 1 else None
+    wf_file = files[choice or (avail[0] if avail else "Có bộ lọc thị trường")]
     if not wf_file.exists():
         ui.empty_state("🧪", "Chưa có kết quả kiểm chứng",
                        "Cần ~2 năm dữ liệu (<code>./run.sh download 730 --prepend</code>) rồi chạy:", "./run.sh validate")
