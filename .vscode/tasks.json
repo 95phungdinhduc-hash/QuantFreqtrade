@@ -1,0 +1,189 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "▶️ BẬT TẤT CẢ (dashboard + bot + alert, chạy nền)",
+            "type": "shell",
+            "command": "./run.sh start",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "⏹ TẮT TẤT CẢ",
+            "type": "shell",
+            "command": "./run.sh stop",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "📋 Xem trạng thái",
+            "type": "shell",
+            "command": "./run.sh status",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "🔁 Cập nhật hằng tuần (dữ liệu + backtest)",
+            "type": "shell",
+            "command": "./run.sh weekly",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "1. Cài đặt (setup)",
+            "type": "shell",
+            "command": "./run.sh setup",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "2. Chuyển dữ liệu cũ (import)",
+            "type": "shell",
+            "command": "./run.sh import",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "3. Backtest so sánh 4 chiến lược",
+            "type": "shell",
+            "command": "./run.sh backtest-all",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "4. Dashboard",
+            "type": "shell",
+            "command": "./run.sh dashboard",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "5. Bot Dry-run Spot",
+            "type": "shell",
+            "command": "./run.sh dryrun",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "6. Bot Dry-run Futures",
+            "type": "shell",
+            "command": "./run.sh dryrun-futures",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "7. Alert bot Telegram",
+            "type": "shell",
+            "command": "./run.sh alert",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "8. Tải dữ liệu mới",
+            "type": "shell",
+            "command": "./run.sh download",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "9. Hyperopt 200 vòng",
+            "type": "shell",
+            "command": "./run.sh hyperopt",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "Kiểm thử (pytest)",
+            "type": "shell",
+            "command": "./run.sh test",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Kiểm tra lookahead bias",
+            "type": "shell",
+            "command": "./run.sh check-bias",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated"
+            }
+        }
+    ]
+}

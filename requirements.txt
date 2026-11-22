@@ -1,0 +1,9 @@
+# Phiên bản đã được kiểm tra chạy chung KHÔNG xung đột (pip check: OK) trên Python 3.12 / macOS arm64
+freqtrade[hyperopt,plot]==2026.10
+streamlit==1.67.0
+plotly==7.1.0
+statsmodels==0.15.0
+feedparser==6.0.14
+python-dotenv==1.2.4
+google-genai==3.6.1
+pytest==9.2.0

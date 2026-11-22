@@ -1,0 +1,14 @@
+# Giao diện dashboard (Streamlit đọc file này khi chạy ./run.sh dashboard)
+[theme]
+base = "dark"
+primaryColor = "#3987e5"
+backgroundColor = "#0b0e14"
+secondaryBackgroundColor = "#161c28"
+textColor = "#e8eaf0"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

@@ -1,0 +1,49 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug: Backtest QuantHybridStrategy",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/.venv/bin/freqtrade",
+            "args": [
+                "backtesting",
+                "-c",
+                "user_data/config.json",
+                "-s",
+                "QuantHybridStrategy"
+            ],
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug: Dashboard",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": [
+                "run",
+                "dashboard/app.py",
+                "--server.port",
+                "8502"
+            ],
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug: Alert bot (1 lần)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/alert_bot/alert_bot.py",
+            "args": [
+                "--once"
+            ],
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        }
+    ]
+}
