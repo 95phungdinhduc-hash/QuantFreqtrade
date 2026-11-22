@@ -105,24 +105,12 @@ def market_frame(pair: str, window: int) -> tuple[pd.DataFrame, str]:
 
 @st.cache_data(ttl=900, show_spinner=False)
 def market_regime() -> dict | None:
-    """Bộ lọc thị trường của bot: BTC đóng cửa ngày (nến đã đóng) so với SMA200 ngày."""
-    try:
-        d = fetch_live_ohlcv("BTC/USDT", "1d", limit=260).iloc[:-1]
-    except Exception:
-        d = load_ohlcv("BTC/USDT", "1d")
-    if d is None or len(d) < 200:
-        return None
-    close, sma = float(d["close"].iloc[-1]), float(d["close"].rolling(200).mean().iloc[-1])
-    return {"close": close, "sma": sma, "up": close > sma, "gap": (close / sma - 1) * 100,
-            "date": d["date"].iloc[-1]}
+    """Bộ lọc thị trường của bot (dùng chung với bot & alert bot): BTC so với SMA200 ngày."""
+    return market_context.btc_regime()
 
 
 def market_filter_enabled() -> bool:
-    try:
-        return bool(json.loads((settings.USER_DATA / "config.json").read_text())
-                    .get("quant", {}).get("market_filter", True))
-    except Exception:
-        return True
+    return market_context.market_filter_enabled()
 
 
 @st.cache_data(ttl=20, show_spinner=False)

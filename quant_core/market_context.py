@@ -84,3 +84,41 @@ def news_sentiment_score(items: list[dict] | None = None) -> int:
     """Tổng điểm tâm lý toàn thị trường (số tin tốt - số tin xấu)."""
     items = fetch_news() if items is None else items
     return sum(1 if i["score"] > 0 else -1 if i["score"] < 0 else 0 for i in items)
+
+
+# ------------------------------------------------------------------ bộ lọc thị trường chung
+# Cùng quy tắc với các bot Freqtrade (quant_core/strategy_common.py):
+# BTC đóng cửa ngày (nến ĐÃ ĐÓNG) dưới SMA200 ngày => thị trường giảm => không Long, chỉ Short.
+MARKET_SMA = 200
+
+
+def market_filter_enabled() -> bool:
+    """Đọc "quant.market_filter" trong user_data/config.json (mặc định bật)."""
+    import json
+
+    from quant_core.settings import USER_DATA
+
+    try:
+        cfg = json.loads((USER_DATA / "config.json").read_text())
+        return bool(cfg.get("quant", {}).get("market_filter", True))
+    except Exception:
+        return True
+
+
+def btc_regime() -> dict | None:
+    """
+    {"up": bool, "close", "sma", "gap" (% so với SMA), "date"} hoặc None nếu thiếu dữ liệu.
+    Ưu tiên nến ngày trực tiếp từ Binance, mất mạng thì dùng dữ liệu đã tải.
+    """
+    from quant_core.data import fetch_live_ohlcv, load_ohlcv
+
+    try:
+        d = fetch_live_ohlcv("BTC/USDT", "1d", limit=MARKET_SMA + 60).iloc[:-1]  # bỏ nến đang chạy
+    except Exception:
+        d = load_ohlcv("BTC/USDT", "1d")
+    if d is None or len(d) < MARKET_SMA:
+        return None
+    close = float(d["close"].iloc[-1])
+    sma = float(d["close"].rolling(MARKET_SMA).mean().iloc[-1])
+    return {"up": close > sma, "close": close, "sma": sma, "gap": (close / sma - 1) * 100,
+            "date": d["date"].iloc[-1]}

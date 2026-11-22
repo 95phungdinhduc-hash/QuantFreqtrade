@@ -122,11 +122,29 @@ def pick_signal(r, legacy: bool):
     return None
 
 
+def market_allows(is_long: bool, regime: dict | None) -> bool:
+    """Giống các bot: thị trường giảm (BTC < SMA200 ngày) -> chỉ Short; thị trường tăng -> chỉ Long."""
+    if regime is None:  # thiếu dữ liệu -> không chặn
+        return True
+    return regime["up"] == is_long
+
+
+def regime_line(regime: dict | None) -> str:
+    if regime is None:
+        return ""
+    if regime["up"]:
+        return f"• Thị trường chung: BTC *trên* SMA200 ngày ({regime['gap']:+.1f}%) → chỉ báo Long\n"
+    return f"• Thị trường chung: BTC *dưới* SMA200 ngày ({regime['gap']:+.1f}%) → chỉ báo Short (Futures)\n"
+
+
 def scan(symbols: list[str], timeframe: str, window: int, cooldown_min: int,
-         legacy: bool = False) -> None:
+         legacy: bool = False, use_market_filter: bool = True) -> None:
     capital, risk_pct = settings.get_user_settings()
+    regime = market_context.btc_regime() if use_market_filter else None
+    mkt = ("" if regime is None else
+           f" | Thị trường: BTC {'trên' if regime['up'] else 'dưới'} SMA200 ({regime['gap']:+.1f}%)")
     print(f"[{datetime.now():%H:%M:%S}] Quét thị trường | Vốn ${capital:,.2f} | Rủi ro {risk_pct}%"
-          f"{' | chế độ GỐC (--legacy)' if legacy else ''}")
+          f"{' | chế độ GỐC (--legacy)' if legacy else ''}{mkt}")
     for sym in symbols:
         try:
             df = add_quant_indicators(fetch_live_ohlcv(sym, timeframe, limit=300, market_type="futures"),
@@ -141,6 +159,9 @@ def scan(symbols: list[str], timeframe: str, window: int, cooldown_min: int,
             if sig is None:
                 continue
             strategy, is_long, strong, sl_mult, tp_mult, use_mean, leverage = sig
+            if not market_allows(is_long, regime):
+                print(f"     (tín hiệu {'LONG' if is_long else 'SHORT'} bị bộ lọc thị trường chặn, giống các bot)")
+                continue
             mean = r["rolling_mean"] if use_mean else None
             # Spot: quy mô lý tưởng theo % rủi ro. Futures: bị sàn ép lên tối thiểu Min Notional.
             plan = plan_position(capital, risk_pct, price, r["rolling_std"], mean,
@@ -177,7 +198,8 @@ def scan(symbols: list[str], timeframe: str, window: int, cooldown_min: int,
                    f"• Chiến lược: *{strategy}* ({'mạnh' if strong else 'trung bình'})\n"
                    f"• Hướng: *{side}*\n"
                    f"• Giá: `${price:,.4f}` | Z: `{z:.2f}σ` | EMA gap: `{gap:.2f}%` | ADF: `{adf:.3f}`\n"
-                   f"• Phiên: {session} | Tin tức: {sentiment}\n")
+                   f"• Phiên: {session} | Tin tức: {sentiment}\n"
+                   f"{regime_line(regime)}")
             if ft_ctx:
                 msg += f"• {ft_ctx.lstrip('- ')}\n"
             msg += "\n📦 *SPOT:* "
@@ -204,13 +226,18 @@ def main() -> None:
     ap.add_argument("--once", action="store_true", help="quét 1 lần rồi thoát")
     ap.add_argument("--legacy", action="store_true",
                     help="báo tín hiệu y hệt 4_alert_bot.py gốc (không lọc ADF)")
+    ap.add_argument("--no-market-filter", action="store_true",
+                    help="bỏ bộ lọc thị trường (BTC so với SMA200 ngày) — mặc định theo config.json")
     args = ap.parse_args()
+    use_filter = market_context.market_filter_enabled() and not args.no_market_filter
 
     print("=== QUANT ALERT BOT (Mean Reversion + Trend + ADF + Gemini + Freqtrade) ===")
     print(f"AI: {'BẬT (' + settings.GEMINI_MODEL + ')' if ai_advisor.is_enabled() else 'TẮT'} | "
-          f"Telegram: {'BẬT' if settings.TELEGRAM_BOT_TOKEN else 'TẮT'}")
+          f"Telegram: {'BẬT' if settings.TELEGRAM_BOT_TOKEN else 'TẮT'} | "
+          f"Bộ lọc thị trường: {'BẬT' if use_filter else 'TẮT'}")
     while True:
-        scan(args.pairs, args.timeframe, args.window, args.cooldown, legacy=args.legacy)
+        scan(args.pairs, args.timeframe, args.window, args.cooldown, legacy=args.legacy,
+             use_market_filter=use_filter)
         if args.once:
             break
         print(f"✅ Xong vòng quét. Nghỉ {args.interval}s...\n")

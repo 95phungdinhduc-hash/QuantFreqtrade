@@ -96,3 +96,17 @@ def test_user_settings_roundtrip(tmp_path, monkeypatch):
     assert settings.get_user_settings(500, 2.0) == (500, 2.0)
     settings.save_user_settings(1234.5, 1.0)
     assert settings.get_user_settings() == (1234.5, 1.0)
+
+
+def test_alert_bot_follows_market_filter():
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "alert_bot"))
+    from alert_bot import market_allows, regime_line
+
+    down, up = {"up": False, "gap": -16.9}, {"up": True, "gap": 5.0}
+    assert not market_allows(True, down) and market_allows(False, down)    # giảm: chặn Long, cho Short
+    assert market_allows(True, up) and not market_allows(False, up)        # tăng: cho Long, chặn Short
+    assert market_allows(True, None) and market_allows(False, None)        # thiếu dữ liệu: không chặn
+    assert "dưới" in regime_line(down) and regime_line(None) == ""

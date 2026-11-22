@@ -46,7 +46,8 @@ Hoặc VS Code → `Cmd + Shift + P` → **Tasks: Run Task** → **▶️ BẬT 
 - **Chỉ bot Hybrid nhận lệnh** `/status`, `/profit`… Các bot khác xem chi tiết trên web hoặc dashboard.
 
 **Bộ lọc thị trường (đang BẬT):** BTC đóng cửa ngày **dưới SMA200 ngày** → thị trường chung đang giảm →
-3 bot Spot **không mở lệnh Long mới**, bot Futures **chỉ được Short**. Trạng thái hiện tại xem ở dashboard
+3 bot Spot **không mở lệnh Long mới**, bot Futures **chỉ được Short**, alert bot **chỉ báo tín hiệu Short**
+(khi thị trường tăng thì ngược lại). Trạng thái hiện tại xem ở dashboard
 (tab 🏠 và 🧭). Tắt bộ lọc: sửa `"market_filter": true` thành `false` trong `user_data/config.json` và
 `config.futures.json`, rồi `./run.sh restart`.
 
@@ -87,6 +88,7 @@ Chi tiết từng giai đoạn (có/không lọc): dashboard → tab 📊 Backte
 | **Theo dõi** | `./run.sh status` | Cái gì đang chạy |
 | | `./run.sh trades` · `trades-futures` | Lịch sử lệnh bot Hybrid / Futures |
 | **Khác** | `./run.sh alert --once` | Alert bot quét thử 1 lần |
+| | `./run.sh alert --no-market-filter` | Alert bot báo cả tín hiệu ngược bộ lọc thị trường |
 | | `./run.sh ui` | Cài lại giao diện web FreqUI |
 | | `./run.sh help` | Xem mọi lệnh |
 
