@@ -110,3 +110,21 @@ def test_alert_bot_follows_market_filter():
     assert market_allows(True, up) and not market_allows(False, up)        # tăng: cho Long, chặn Short
     assert market_allows(True, None) and market_allows(False, None)        # thiếu dữ liệu: không chặn
     assert "dưới" in regime_line(down) and regime_line(None) == ""
+
+
+def test_alert_instructions_contain_steps_qty_and_pct():
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "alert_bot"))
+    from alert_bot import futures_instructions, spot_instructions
+
+    plan = plan_position(1000, 1.5, 60000, 600, None, is_long=True, sl_std_mult=2.0, tp_std_mult=3.0)
+    spot = spot_instructions("BTC/USDT", 60000, plan, True, 1000)
+    assert "Market" in spot and "OCO" in spot and "BTC" in spot
+    assert "-2.00%" in spot and "+3.00%" in spot                      # SL 2σ, TP 3σ với σ = 1% giá
+    assert "vượt vốn" not in spot                                      # 750$ < vốn 1000$
+    assert "vượt vốn" in spot_instructions("BTC/USDT", 60000, plan, True, 100)
+    assert "đứng ngoài" in spot_instructions("BTC/USDT", 60000, plan, False, 1000)
+    fut = futures_instructions("BTC/USDT", 60000, plan, plan, True, 3, 250.0, 0.75, "")
+    assert "Isolated" in fut and "x3" in fut and "LONG" in fut

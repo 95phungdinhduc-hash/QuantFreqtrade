@@ -122,6 +122,56 @@ def pick_signal(r, legacy: bool):
     return None
 
 
+# ------------------------------------------------------------------ hướng dẫn vào lệnh
+def fmt_price(v: float) -> str:
+    return f"${v:,.2f}" if v >= 10 else f"${v:,.4f}"
+
+
+def fmt_qty(q: float) -> str:
+    return f"{q:,.1f}" if q >= 100 else f"{q:,.3f}" if q >= 1 else f"{q:.5f}"
+
+
+def move_pct(target: float, price: float) -> str:
+    return f"{(target / price - 1) * 100:+.2f}%"
+
+
+def spot_instructions(sym: str, price: float, plan, is_long: bool, capital: float) -> str:
+    """Các bước vào lệnh Spot trên Binance (giống bản cũ: Market + OCO), kèm số coin và % SL/TP."""
+    base = sym.split("/")[0]
+    if not is_long:
+        return ("📦 *SPOT:* không Short được → đứng ngoài.\n"
+                f"   Nếu đang giữ {base}: cân nhắc chốt lời một phần quanh `{fmt_price(price)}`.\n")
+    usd = plan.position_usd
+    note = ""
+    if usd > capital:  # khối lượng theo % rủi ro vượt quá vốn -> giới hạn bằng vốn
+        stop = abs(price - plan.stop_loss) / price
+        usd = capital
+        note = (f"   ⚠️ Khối lượng lý tưởng vượt vốn → mua tối đa `${capital:,.0f}` "
+                f"(lỗ tối đa còn `${capital * stop:,.2f}`)\n")
+    return (f"📦 *SPOT — cách vào lệnh:*\n"
+            f"1. Mua *Market* `{fmt_qty(usd / price)} {base}` (≈ `${usd:,.2f}`)\n"
+            f"2. Ngay sau khi khớp, đặt lệnh *OCO* bán toàn bộ:\n"
+            f"   • Chốt lời (TP): `{fmt_price(plan.take_profit)}` ({move_pct(plan.take_profit, price)})\n"
+            f"   • Cắt lỗ (SL): `{fmt_price(plan.stop_loss)}` ({move_pct(plan.stop_loss, price)})\n"
+            f"{note}")
+
+
+def futures_instructions(sym: str, price: float, plan, fplan, is_long: bool, leverage: int,
+                         margin: float, fee_2way: float, risk_note: str) -> str:
+    """Các bước vào lệnh Futures (Isolated + đòn bẩy + TP/SL), kèm số coin, ký quỹ, lỗ tối đa, phí."""
+    base = sym.split("/")[0]
+    side = "LONG (Mua)" if is_long else "SHORT (Bán)"
+    return (f"⚡ *FUTURES — cách vào lệnh:*\n"
+            f"1. Chọn ký quỹ *Isolated*, đòn bẩy *x{leverage}*\n"
+            f"2. Mở *{side}* Market `{fmt_qty(fplan.position_usd / price)} {base}` "
+            f"(lệnh ≈ `${fplan.position_usd:,.2f}`, ký quỹ ≈ `${margin:,.2f}`)\n"
+            f"3. Đặt TP/SL cho vị thế:\n"
+            f"   • Chốt lời (TP): `{fmt_price(plan.take_profit)}` ({move_pct(plan.take_profit, price)})\n"
+            f"   • Cắt lỗ (SL): `{fmt_price(plan.stop_loss)}` ({move_pct(plan.stop_loss, price)})\n"
+            f"• Lỗ tối đa nếu chạm SL: `${fplan.risk_usd:,.2f}`{risk_note}\n"
+            f"• Phí sàn 2 chiều (ước tính): ~`${fee_2way:,.4f}` · Tỷ lệ lời/lỗ 1:{plan.rr_ratio:.1f}\n")
+
+
 def market_allows(is_long: bool, regime: dict | None) -> bool:
     """Giống các bot: thị trường giảm (BTC < SMA200 ngày) -> chỉ Short; thị trường tăng -> chỉ Long."""
     if regime is None:  # thiếu dữ liệu -> không chặn
@@ -202,14 +252,9 @@ def scan(symbols: list[str], timeframe: str, window: int, cooldown_min: int,
                    f"{regime_line(regime)}")
             if ft_ctx:
                 msg += f"• {ft_ctx.lstrip('- ')}\n"
-            msg += "\n📦 *SPOT:* "
-            msg += (f"mua `${plan.position_usd:,.2f}` — TP `${plan.take_profit:,.4f}` | "
-                    f"SL `${plan.stop_loss:,.4f}`\n" if is_long else "không Short được, đứng ngoài.\n")
-            msg += (f"⚡ *FUTURES:* x{leverage}, ký quỹ `${margin:,.2f}` "
-                    f"(lệnh `${fplan.position_usd:,.2f}`)\n"
-                    f"• Lỗ tối đa nếu chạm SL: `${fplan.risk_usd:,.2f}`{risk_note}\n"
-                    f"• Phí sàn 2 chiều (ước tính): ~`${fee_2way:,.4f}`\n"
-                    f"• TP `${plan.take_profit:,.4f}` | SL `${plan.stop_loss:,.4f}` | R:R 1:{plan.rr_ratio:.1f}")
+            msg += "\n" + spot_instructions(sym, price, plan, is_long, capital)
+            msg += "\n" + futures_instructions(sym, price, plan, fplan, is_long, leverage, margin,
+                                               fee_2way, risk_note)
             send_telegram(msg)
             _last_sent[key] = time.time()
         except Exception as e:
