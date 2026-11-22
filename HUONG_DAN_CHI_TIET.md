@@ -1,6 +1,10 @@
 # 📗 Hướng dẫn chi tiết có ví dụ — QuantFreqtrade
 
 > Đây là bản **đầy đủ** (giải thích từng kết quả). Bản **ngắn gọn** để tra nhanh: [LENH.md](LENH.md)
+>
+> **Cập nhật mới (xem LENH.md):** chế độ tự động `./run.sh start/stop`, `autostart` (tự bật khi mở máy,
+> tự bật lại bot bị tắt), cả 4 bot đều nhắn Telegram, dữ liệu 2 năm và `./run.sh validate` (kiểm chứng
+> theo giai đoạn). Câu nào bên dưới nói "chỉ bot Hybrid gửi Telegram" nay không còn đúng.
 
 File này gồm **tất cả các lệnh** của dự án, mỗi lệnh đều có **ví dụ cụ thể**: gõ gì, màn hình hiện gì,
 và hiểu kết quả thế nào. Kết quả mẫu ở các mục 3–8 là **kết quả thật** chạy trên máy bạn ngày 22/11/2026

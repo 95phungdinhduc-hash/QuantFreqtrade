@@ -79,3 +79,17 @@ def test_mood_labels():
     assert advisor.mood([-60, -50])[0] == "Rất tiêu cực"
     assert advisor.mood([0, 5])[0] == "Trung lập"
     assert advisor.mood([60, 50])[0] == "Rất tích cực"
+
+
+def test_walk_forward_windows_cover_range():
+    import sys
+    from datetime import date
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+    from walk_forward import windows
+
+    w = windows(date(2024, 11, 22), date(2026, 11, 22))
+    assert w[0][0] == "20241201" and w[-1][1] == "20261122"
+    assert all(a < b for a, b in w)
+    assert all(w[i][1] == w[i + 1][0] for i in range(len(w) - 1))  # liền mạch, không chồng lấn

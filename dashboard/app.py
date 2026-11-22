@@ -56,7 +56,9 @@ H = ui.html_block
 # ==========================================================================================
 @st.cache_data(ttl=300, show_spinner="Đang tính chỉ báo...")
 def load_with_indicators(pair: str, tf: str, window: int, mtime: float) -> pd.DataFrame:
-    df = load_ohlcv(pair, tf)
+    # Dashboard chỉ cần ~5000 nến gần nhất (1h ≈ 7 tháng). Backtest vẫn dùng toàn bộ dữ liệu.
+    # Không cắt thì 2 năm nến 15m (70.000 nến) khiến ADF tính rất lâu.
+    df = load_ohlcv(pair, tf).tail(5000).reset_index(drop=True)
     if df.empty:
         return df
     df = add_quant_indicators(df, window=window)
@@ -906,7 +908,7 @@ with t_news:
 # TAB 5 — BOT FREQTRADE (LIVE)
 # ==========================================================================================
 CONTROL = [  # (tên dịch vụ trong ./run.sh start, nhãn, cổng, mô tả)
-    ("hybrid", "🔄 Bot Hybrid (Spot)", 8080, "Bot chính · gửi Telegram"),
+    ("hybrid", "🔄 Bot Hybrid (Spot)", 8080, "Bot chính · nhận lệnh Telegram"),
     ("breakout", "🚀 Bot Breakout", 8082, "Mua theo đà"),
     ("dca", "🧺 Bot Smart DCA", 8083, "Tích luỹ từng phần"),
     ("futures", "⚡ Bot Futures", 8081, "Long + Short, đòn bẩy"),
@@ -966,8 +968,8 @@ def control_panel():
                     st.rerun()
             else:
                 st.caption("Bật bằng tay trong Terminal → tắt bằng `Ctrl + C` ở Terminal đó.")
-    st.caption("Chỉ 1 bot được dùng Telegram: bot Hybrid. Các bot khác xem ở web hoặc ngay bên dưới. "
-               "Muốn bot tự bật mỗi khi mở máy: gõ `./run.sh autostart on` một lần.")
+    st.caption("Cả 4 bot nhắn Telegram khi vào/thoát lệnh; chỉ bot Hybrid nhận lệnh /status, /profit. "
+               "Với autostart, bot bị tắt bất thường sẽ tự bật lại sau tối đa 5 phút.")
 
 
 with t_bot:
@@ -1032,7 +1034,53 @@ with t_bot:
 # ==========================================================================================
 # TAB 6 — KẾT QUẢ BACKTEST
 # ==========================================================================================
+SHORT_NAMES = {"QuantZScoreStrategy": "Z-Score gốc", "QuantHybridStrategy": "Hybrid",
+               "QuantBreakoutStrategy": "Breakout", "QuantSmartDCAStrategy": "Smart DCA",
+               "QuantHybridFuturesStrategy": "Hybrid Futures"}
+
+
+def render_walk_forward() -> None:
+    wf_file = settings.USER_DATA / "walk_forward.json"
+    ui.section("🧪 Kiểm chứng theo giai đoạn (walk-forward)",
+               "Cùng một bộ tham số chạy riêng trên <b>từng 6 tháng</b>. Chiến lược đáng tin phải ổn định qua "
+               "nhiều kiểu thị trường, không chỉ đẹp ở một giai đoạn may mắn.",
+               aside="Chạy lại: <code>./run.sh validate</code>")
+    if not wf_file.exists():
+        ui.empty_state("🧪", "Chưa có kết quả kiểm chứng",
+                       "Cần ~2 năm dữ liệu (<code>./run.sh download 730 --prepend</code>) rồi chạy:", "./run.sh validate")
+        return
+    wf = json.loads(wf_file.read_text())
+    labels = [w["label"] for w in wf["windows"]]
+    names = list(wf["strategies"])
+    z = [[r["profit_pct"] for r in wf["strategies"][n]] for n in names] + [[w["market_pct"] for w in wf["windows"]]]
+    ylab = [SHORT_NAMES.get(n, n) for n in names] + ["Mua & giữ (thị trường)"]
+    lim = max(5.0, max(abs(v) for row in z for v in row))
+    fig = go.Figure(go.Heatmap(
+        z=z, x=labels, y=ylab, zmin=-lim, zmax=lim, xgap=4, ygap=4,
+        colorscale=[[0, ui.DOWN], [0.5, "#2a2f3a"], [1, ui.UP]], showscale=False,
+        text=[[f"{v:+.1f}%" for v in row] for row in z], texttemplate="%{text}",
+        textfont=dict(color=ui.TEXT, size=14), hovertemplate="%{y} · %{x}: %{text}<extra></extra>"))
+    fig.update_layout(height=90 + 52 * len(ylab), yaxis=dict(autorange="reversed"),
+                      xaxis=dict(side="top"), margin=dict(l=8, r=8, t=30, b=8))
+    ui.chart(fig, key="wf_heat")
+    cards = []
+    for n in names:
+        sm = wf["summary"][n]
+        kind = "long" if sm["profitable"] >= sm["n"] * 0.75 else "wait" if sm["profitable"] >= sm["n"] / 2 else "short"
+        verdict = {"long": "Ổn định", "wait": "Chưa ổn định", "short": "Không ổn định"}[kind]
+        cards.append(f"""<div class="card"><div class="card-head"><b style="color:var(--text)">{SHORT_NAMES.get(n, n)}</b>
+          {ui.badge(verdict, kind)}</div>
+          {ui.kv('Giai đoạn có lãi', f"{sm['profitable']} / {sm['n']}", 'up' if sm['profitable'] > sm['n'] / 2 else 'down')}
+          {ui.kv('Thắng thị trường', f"{sm['beat_market']} / {sm['n']}")}
+          {ui.kv('Tổng lãi/lỗ các giai đoạn', ui.fmt_pct(sm['sum_profit_pct']), 'up' if sm['sum_profit_pct'] > 0 else 'down')}
+          {ui.kv('Sụt vốn tệ nhất', f"{sm['worst_dd_pct']:.1f}%")}</div>""")
+    H(f'<div class="grid" style="margin-top:12px">{"".join(cards)}</div>')
+    st.caption(f"Cập nhật: {wf['generated'].replace('T', ' ')} · Ô xanh = có lãi, ô đỏ = lỗ trong giai đoạn đó. "
+               "Ổn định = có lãi ở ≥ 75% số giai đoạn.")
+
+
 with t_bt:
+    render_walk_forward()
     ui.section("📊 Kết quả Backtest Freqtrade", "So sánh chiến lược trên cùng dữ liệu quá khứ.")
     bt_dir = settings.USER_DATA / "backtest_results"
     files = sorted(bt_dir.glob("backtest-result-*.zip"), reverse=True)

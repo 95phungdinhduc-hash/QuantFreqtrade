@@ -27,6 +27,26 @@ load_env() {
   return 0
 }
 
+# Thông báo Telegram cho bot phụ (Breakout, DCA, Futures) qua WEBHOOK: bot chỉ GỬI tin, không đọc tin,
+# nên không tranh token với bot Hybrid (bot duy nhất nhận lệnh /status, /profit...).
+WEBHOOK_ENV=()
+tg_webhook_env() {  # $1 = tên bot hiện trong tin nhắn
+  WEBHOOK_ENV=()
+  [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]] || return 0
+  local n=$'\n' b="[$1]"
+  WEBHOOK_ENV=(
+    "FREQTRADE__WEBHOOK__ENABLED=true"
+    "FREQTRADE__WEBHOOK__FORMAT=json"
+    "FREQTRADE__WEBHOOK__RETRIES=2"
+    "FREQTRADE__WEBHOOK__URL=https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}"
+    "FREQTRADE__WEBHOOK__ENTRY_FILL__TEXT=🟢 $b VÀO LỆNH #{trade_id} {pair}${n}Hướng: {direction} x{leverage:.0f} · Kiểu: {enter_tag}${n}Giá: {open_rate}${n}Tiền: {stake_amount:.2f} {stake_currency}"
+    "FREQTRADE__WEBHOOK__EXIT_FILL__TEXT=🏁 $b THOÁT LỆNH #{trade_id} {pair}${n}Lãi/lỗ: {profit_ratio:.2%} ({profit_amount:.2f} {stake_currency})${n}Lý do: {exit_reason}${n}Giá: {open_rate} → {close_rate}"
+    "FREQTRADE__WEBHOOK__STATUS__TEXT=ℹ️ $b {status}"
+    "FREQTRADE__WEBHOOK__WARNING__TEXT=⚠️ $b {status}"
+    "FREQTRADE__WEBHOOK__EXCEPTION__TEXT=❌ $b {status}"
+  )
+}
+
 need_venv() {
   [[ -x "$PY" ]] || { echo "[!] Chưa cài đặt. Chạy: ./run.sh setup"; exit 1; }
 }
@@ -57,6 +77,7 @@ DEFAULT_SERVICES=(dashboard hybrid alert)
 LA_DIR="$HOME/Library/LaunchAgents"
 LA_START="com.quantfreqtrade.start"
 LA_WEEKLY="com.quantfreqtrade.weekly"
+LA_WATCHDOG="com.quantfreqtrade.watchdog"
 AUTOSTART_SERVICES="all"   # autostart bật gì khi mở máy: "all" = dashboard + 4 bot + alert
 
 svc_args() {
@@ -79,8 +100,10 @@ svc_label() {
                dca) echo "Bot Smart DCA" ;; futures) echo "Bot Futures" ;; alert) echo "Alert bot Telegram" ;; esac
 }
 svc_pid() {  # PID nếu dịch vụ do ./run.sh start bật và còn sống
-  local f="$LOGDIR/$1.pid"
-  [[ -f "$f" ]] && kill -0 "$(cat "$f")" 2>/dev/null && cat "$f"
+  local f="$LOGDIR/$1.pid" pid
+  [[ -f "$f" ]] || return 0
+  pid="$(cat "$f")"
+  kill -0 "$pid" 2>/dev/null && ps -p "$pid" -o command= 2>/dev/null | grep -q "run.sh" && echo "$pid"
   return 0
 }
 port_busy() { [[ -n "$1" ]] && lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
@@ -111,7 +134,7 @@ cmd_start() {
     if svc_running "$s"; then echo "  [ĐÃ CHẠY] $(svc_label "$s")"; continue; fi
     echo "===== $(date '+%Y-%m-%d %H:%M:%S') BẬT =====" >> "$LOGDIR/$s.log"
     # shellcheck disable=SC2086
-    nohup "${launcher[@]}" "$ROOT/run.sh" $args >> "$LOGDIR/$s.log" 2>&1 &
+    nohup ${launcher[@]+"${launcher[@]}"} "$ROOT/run.sh" $args >> "$LOGDIR/$s.log" 2>&1 &
     echo $! > "$LOGDIR/$s.pid"
     echo "  [  BẬT   ] $(svc_label "$s")   (log: logs/$s.log)"
   done
@@ -146,6 +169,36 @@ cmd_status() {
   done
   if [[ -f "$LA_DIR/$LA_START.plist" ]]; then echo "  Tự bật khi mở máy: CÓ"; else echo "  Tự bật khi mở máy: KHÔNG"; fi
   if [[ -f "$LA_DIR/$LA_WEEKLY.plist" ]]; then echo "  Cập nhật hằng tuần (CN 8:00): CÓ"; else echo "  Cập nhật hằng tuần: KHÔNG"; fi
+  if [[ -f "$LA_DIR/$LA_WATCHDOG.plist" ]]; then echo "  Tự bật lại bot bị tắt (5 phút/lần): CÓ"; else echo "  Tự bật lại bot bị tắt: KHÔNG"; fi
+}
+
+cmd_watchdog() {
+  # Chạy mỗi 5 phút (launchd). Dịch vụ còn file .pid (= chưa bị ./run.sh stop) mà tiến trình đã chết
+  # -> coi là tắt bất thường -> bật lại + báo Telegram. Đồng thời dọn log quá 20 MB.
+  mkdir -p "$LOGDIR"
+  local s f restarted=()
+  for s in "${SERVICES[@]}"; do
+    f="$LOGDIR/$s.pid"
+    [[ -f "$f" ]] || continue
+    [[ -n "$(svc_pid "$s")" ]] && continue
+    rm -f "$f"
+    if svc_running "$s"; then continue; fi   # đang chạy trong Terminal -> không đụng vào
+    echo "$(date '+%F %T') $(svc_label "$s") tắt bất thường -> bật lại" >> "$LOGDIR/watchdog.log"
+    cmd_start "$s" >> "$LOGDIR/watchdog.log" 2>&1
+    restarted+=("$(svc_label "$s")")
+  done
+  for f in "$LOGDIR"/*.log; do
+    [[ -f "$f" ]] || continue
+    if [[ "$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f")" -gt 20971520 ]]; then
+      cp "$f" "$f.1" && : > "$f"   # giữ 1 bản cũ (.log.1), bot vẫn ghi tiếp vào file hiện tại
+    fi
+  done
+  if [[ ${#restarted[@]} -gt 0 && -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
+    curl -s -m 10 -o /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+      --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+      --data-urlencode "text=⚠️ QuantFreqtrade: ${restarted[*]} bị tắt bất thường — đã tự bật lại." || true
+  fi
+  return 0
 }
 
 cmd_logs() {
@@ -189,7 +242,10 @@ cmd_autostart() {
       write_plist "$LA_START" "start $AUTOSTART_SERVICES" "<key>RunAtLoad</key><true/>"
       write_plist "$LA_WEEKLY" "weekly" \
         "<key>StartCalendarInterval</key><dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>"
-      plutil -lint "$LA_DIR/$LA_START.plist" "$LA_DIR/$LA_WEEKLY.plist" >/dev/null
+      write_plist "$LA_WATCHDOG" "watchdog" "<key>StartInterval</key><integer>300</integer>"
+      plutil -lint "$LA_DIR/$LA_START.plist" "$LA_DIR/$LA_WEEKLY.plist" "$LA_DIR/$LA_WATCHDOG.plist" >/dev/null
+      launchctl bootout "gui/$uid/$LA_WATCHDOG" 2>/dev/null || true
+      launchctl bootstrap "gui/$uid" "$LA_DIR/$LA_WATCHDOG.plist"
       launchctl bootout "gui/$uid/$LA_START" 2>/dev/null || true
       launchctl bootout "gui/$uid/$LA_WEEKLY" 2>/dev/null || true
       launchctl bootstrap "gui/$uid" "$LA_DIR/$LA_WEEKLY.plist"
@@ -198,11 +254,13 @@ cmd_autostart() {
       echo "[✓] Đã bật tự động:"
       echo "    • Mỗi lần đăng nhập máy: tự chạy ./run.sh start $AUTOSTART_SERVICES ($(expand_services $AUTOSTART_SERVICES))"
       echo "    • Chủ nhật 8:00 hằng tuần: tải dữ liệu mới + backtest-all"
+      echo "    • Mỗi 5 phút: bot nào tắt bất thường thì tự bật lại (báo Telegram) + dọn log > 20 MB"
       echo "    Tắt: ./run.sh autostart off" ;;
     off)
       launchctl bootout "gui/$uid/$LA_START" 2>/dev/null || true
       launchctl bootout "gui/$uid/$LA_WEEKLY" 2>/dev/null || true
-      rm -f "$LA_DIR/$LA_START.plist" "$LA_DIR/$LA_WEEKLY.plist"
+      launchctl bootout "gui/$uid/$LA_WATCHDOG" 2>/dev/null || true
+      rm -f "$LA_DIR/$LA_START.plist" "$LA_DIR/$LA_WEEKLY.plist" "$LA_DIR/$LA_WATCHDOG.plist"
       echo "[✓] Đã tắt tự động (các bot đang chạy vẫn chạy — tắt bằng ./run.sh stop)" ;;
     *) echo "Dùng: ./run.sh autostart on | off" ;;
   esac
@@ -220,7 +278,8 @@ Cách dùng: ./run.sh <lệnh> [tham số thêm cho freqtrade]
     restart            Tắt rồi bật lại
     logs [tên]         Xem log trực tiếp, ví dụ: ./run.sh logs hybrid   (Ctrl + C để thoát)
     weekly             Tải dữ liệu mới + backtest-all (việc hằng tuần)
-    autostart on|off   Tự bật khi mở máy + tự chạy weekly mỗi Chủ nhật 8:00
+    autostart on|off   Tự bật khi mở máy + weekly mỗi Chủ nhật 8:00 + tự bật lại bot bị tắt (5 phút/lần)
+    watchdog           Kiểm tra 1 lần: bot nào tắt bất thường thì bật lại (autostart tự chạy lệnh này)
 
   CÀI ĐẶT
     setup              Tạo môi trường .venv, cài Freqtrade + thư viện, tạo .env
@@ -237,6 +296,7 @@ Cách dùng: ./run.sh <lệnh> [tham số thêm cho freqtrade]
     backtest-futures   Backtest QuantHybridFuturesStrategy (Long + Short, đòn bẩy)
     check-bias         Kiểm tra chiến lược có "nhìn trước tương lai" (lookahead bias) không
     hyperopt [epochs]  Tối ưu tham số QuantHybridStrategy (mặc định 200 vòng)
+    validate           Kiểm chứng theo từng giai đoạn 6 tháng trên toàn bộ dữ liệu (walk-forward, 10–20 phút)
     legacy             Chạy lại backtest kiểu cũ (vector hoá) trên dữ liệu Freqtrade để đối chiếu
     plot [cặp]         Vẽ biểu đồ lệnh backtest (mặc định BTC/USDT) -> user_data/plot/
 
@@ -294,12 +354,13 @@ main() {
           [[ " $* " == *" --timerange"* ]] || tr=(--timerange "$(date -v-120d +%Y%m%d 2>/dev/null || date -d '120 days ago' +%Y%m%d)-")
           "$FT" lookahead-analysis -c "$CFG" --strategy-list QuantHybridStrategy QuantZScoreStrategy \
             QuantBreakoutStrategy QuantSmartDCAStrategy \
-            --minimum-trade-amount 5 --targeted-trade-amount 10 "${tr[@]}" "$@" ;;
+            --minimum-trade-amount 5 --targeted-trade-amount 10 ${tr[@]+"${tr[@]}"} "$@" ;;
         hyperopt)
           local epochs="${1:-200}"; shift || true
           "$FT" hyperopt -c "$CFG" -s QuantHybridStrategy --hyperopt-loss SharpeHyperOptLossDaily \
             --spaces buy sell protection -e "$epochs" -j 4 "$@" ;;
         legacy)    "$PY" tools/legacy_backtest.py "$@" ;;
+        validate)  "$PY" tools/walk_forward.py "$@" ;;
         plot)
           local pair="${1:-BTC/USDT}"; shift || true
           # Tìm file backtest mới nhất CÓ QuantHybridStrategy (bỏ qua kết quả futures)
@@ -321,14 +382,17 @@ print(str(m[0]).replace(".meta.json",".zip") if m else "")')"
           # Chỉ 1 bot được dùng 1 Telegram token cùng lúc -> mặc định tắt Telegram cho bot futures.
           # Chỉ chạy bot Futures (không chạy bot Spot) mà muốn có Telegram:
           #   FUTURES_TELEGRAM=true ./run.sh dryrun-futures
-          FREQTRADE__TELEGRAM__ENABLED="${FUTURES_TELEGRAM:-false}" "$FT" trade -c "$CFG_FUT" "$@" ;;
+          [[ "${FUTURES_TELEGRAM:-false}" == true ]] || tg_webhook_env "Futures"
+          env ${WEBHOOK_ENV[@]+"${WEBHOOK_ENV[@]}"} FREQTRADE__TELEGRAM__ENABLED="${FUTURES_TELEGRAM:-false}" \
+            "$FT" trade -c "$CFG_FUT" "$@" ;;
         dryrun-breakout|dryrun-dca)
           # Bot Spot thứ 2/3: cổng API & database riêng để chạy song song với bot Hybrid.
           # Telegram mặc định tắt (token chỉ dùng được cho 1 bot); bật: STRATEGY_TELEGRAM=true
           local strat port db
           if [[ "$cmd" == "dryrun-breakout" ]]; then strat=QuantBreakoutStrategy; port=8082; db=breakout
           else strat=QuantSmartDCAStrategy; port=8083; db=dca; fi
-          FREQTRADE__TELEGRAM__ENABLED="${STRATEGY_TELEGRAM:-false}" \
+          [[ "${STRATEGY_TELEGRAM:-false}" == true ]] || tg_webhook_env "$( [[ $db == dca ]] && echo "Smart DCA" || echo "Breakout")"
+          env ${WEBHOOK_ENV[@]+"${WEBHOOK_ENV[@]}"} FREQTRADE__TELEGRAM__ENABLED="${STRATEGY_TELEGRAM:-false}" \
           FREQTRADE__API_SERVER__LISTEN_PORT=$port FREQTRADE__BOT_NAME="QuantFreqtrade-$db" \
             "$FT" trade -c "$CFG" -s "$strat" --db-url "sqlite:///user_data/tradesv3.$db.dryrun.sqlite" "$@" ;;
         dashboard) "$ROOT/.venv/bin/streamlit" run dashboard/app.py --server.port 8502 "$@" ;;
@@ -340,6 +404,7 @@ print(str(m[0]).replace(".meta.json",".zip") if m else "")')"
         restart)   cmd_stop "$@"; sleep 2; cmd_start "$@" ;;
         logs)      cmd_logs "$@" ;;
         weekly)    cmd_weekly ;;
+        watchdog)  cmd_watchdog ;;
         autostart) cmd_autostart "$@" ;;
         trades)
           "$FT" show-trades -c "$CFG" --db-url "sqlite:///tradesv3.dryrun.sqlite" "$@" ;;

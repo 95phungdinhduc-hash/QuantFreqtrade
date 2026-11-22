@@ -4,139 +4,114 @@ Bản ngắn để tra nhanh. Cần giải thích từng kết quả và ví d�
 
 ---
 
-## 1. Trước khi gõ lệnh
+## ⚡ Chế độ tự động (cách nhanh nhất)
 
-Mở Terminal (VS Code: **Terminal → New Terminal**), rồi vào thư mục dự án:
+Mọi thứ chạy **nền**: không cần giữ Terminal mở.
 
-```bash
-cd ~/QuantFreqtrade
-```
-
-| Muốn | Làm |
+| Muốn | Lệnh |
 |---|---|
+| Bật dashboard + bot Hybrid + alert bot | `./run.sh start` |
+| Bật **tất cả** (thêm Breakout, DCA, Futures) | `./run.sh start all` |
+| Chỉ bật vài thứ | `./run.sh start dca breakout` |
+| Tắt tất cả / tắt 1 thứ | `./run.sh stop` · `./run.sh stop dca` |
 | Xem cái gì đang chạy | `./run.sh status` |
-| Xem danh sách lệnh | `./run.sh help` |
-| Dừng chương trình đang chạy | Bấm `Ctrl + C` |
-| Chạy 2 thứ cùng lúc | Mở thêm Terminal (nút **+**), mỗi thứ một Terminal |
+| Xem bot đang làm gì | `./run.sh logs hybrid` (`Ctrl + C` để thoát, bot vẫn chạy) |
+
+Tên dùng được: `dashboard` · `hybrid` · `breakout` · `dca` · `futures` · `alert`.
+
+**Không muốn gõ lệnh?** Dashboard → tab 🤖 **Bot Freqtrade** → nút **▶ Bật / ■ Tắt**.
+Hoặc VS Code → `Cmd + Shift + P` → **Tasks: Run Task** → **▶️ BẬT TẤT CẢ**.
+
+**Tự động hoàn toàn** — đang **BẬT** trên máy bạn (`./run.sh autostart off` để tắt):
+- Mở máy → tự bật dashboard, cả 4 bot và alert bot.
+- Mỗi **5 phút** → bot nào tắt bất thường (lỗi mạng, crash…) thì **tự bật lại** và nhắn Telegram báo bạn.
+  Bot bạn tự tắt (nút Tắt / `./run.sh stop`) sẽ **không** bị bật lại.
+- Mỗi **Chủ nhật 8:00** → tự tải dữ liệu mới và chạy backtest.
+
+> Máy phải **bật** thì bot mới chạy. Gập nắp MacBook thì máy vẫn ngủ (trừ khi cắm sạc + màn hình ngoài).
 
 ---
 
-## 2. Bốn việc hay làm nhất
+## 1. Chọn bot nào?
 
-**① Cập nhật dữ liệu** (mỗi tuần 1 lần)
-```bash
-./run.sh download
-```
-
-**② Thử chiến lược trên quá khứ** (backtest, không tốn tiền)
-```bash
-./run.sh backtest-all
-```
-Nhìn bảng cuối cùng **STRATEGY SUMMARY**: cột `Tot Profit %` (lãi/lỗ) và `Drawdown` (sụt vốn tối đa).
-
-**③ Xem dashboard**
-```bash
-./run.sh dashboard
-```
-Mở http://localhost:8502. Tab **🧭 Tư vấn** gợi ý chiến lược và cách chia vốn.
-
-**④ Chạy bot bằng tiền ảo** (dry-run, không mất tiền thật)
-```bash
-./run.sh dryrun
-```
-Bot nhắn Telegram khi vào/thoát lệnh. Để nguyên Terminal này, muốn tắt thì bấm `Ctrl + C`.
-
----
-
-## 3. Chọn bot nào?
-
-| Bot | Hợp khi thị trường | Lệnh chạy | Xem trên web |
+| Bot | Hợp khi thị trường | Lệnh chạy riêng | Xem trên web |
 |---|---|---|---|
-| **Hybrid** (mặc định) | Đi ngang hoặc xu hướng nhẹ | `./run.sh dryrun` | http://127.0.0.1:8080 |
+| **Hybrid** | Đi ngang hoặc xu hướng nhẹ | `./run.sh dryrun` | http://127.0.0.1:8080 |
 | **Breakout** | Tăng mạnh, phá đỉnh | `./run.sh dryrun-breakout` | http://127.0.0.1:8082 |
 | **Smart DCA** | Hoảng loạn, muốn tích luỹ dần | `./run.sh dryrun-dca` | http://127.0.0.1:8083 |
 | **Futures** (Long + Short, đòn bẩy) | Giảm mạnh, muốn Short | `./run.sh dryrun-futures` | http://127.0.0.1:8081 |
 
 - Đăng nhập web: `freqtrader` / mật khẩu ở dòng `FREQTRADE__API_SERVER__PASSWORD` trong file `.env`.
-- **Chỉ bot Hybrid gửi Telegram.** Muốn bot khác gửi Telegram thì tắt bot Hybrid trước, rồi chạy:
-  `FUTURES_TELEGRAM=true ./run.sh dryrun-futures` hoặc `STRATEGY_TELEGRAM=true ./run.sh dryrun-dca`
+- **Cả 4 bot đều nhắn Telegram** khi vào/thoát lệnh (tin có tên bot, ví dụ `🟢 [Breakout] VÀO LỆNH…`).
+- **Chỉ bot Hybrid nhận lệnh** `/status`, `/profit`… Các bot khác xem chi tiết trên web hoặc dashboard.
 
-Kết quả backtest hiện tại (25/05 – 22/11/2026, thị trường giảm 18,9%):
+**Kết quả kiểm chứng 2 năm** (12/2024 – 11/2026, thị trường **giảm 42%**, chạy lại: `./run.sh validate`):
 
-| Hybrid | Breakout | Smart DCA | Futures |
-|---|---|---|---|
-| −6,1% | −0,5% | −2,3% | −8,6% |
+| Chiến lược | Cả 2 năm | Sụt vốn tối đa | Giai đoạn 6 tháng có lãi | Thắng "mua & giữ" |
+|---|---|---|---|---|
+| Smart DCA | −11,9% | 13,0% | 0 / 4 | 3 / 4 |
+| Hybrid | −19,2% | 19,2% | 1 / 4 | **4 / 4** |
+| Breakout | −33,5% | 39,2% | 0 / 4 | 2 / 4 |
+| Futures | −34,4% | 37,0% | 0 / 4 | 2 / 4 |
+| Z-Score gốc | −44,7% | 54,3% | 1 / 4 | 2 / 4 |
 
-→ **Chưa bot nào có lãi. Chỉ chạy tiền ảo.**
+→ **Chưa chiến lược nào có lãi ổn định. Chỉ chạy tiền ảo.** Hybrid và Smart DCA lỗ ít hơn thị trường rõ rệt,
+nhưng "lỗ ít hơn" chưa phải là "có lãi". Chi tiết từng giai đoạn: dashboard → tab 📊 Backtest.
 
 ---
 
-## 4. Tất cả lệnh `./run.sh`
+## 2. Tất cả lệnh `./run.sh`
 
 | Nhóm | Lệnh | Làm gì |
 |---|---|---|
-| **Dữ liệu** | `./run.sh download` | Tải nến Spot 365 ngày |
-| | `./run.sh download-futures` | Tải nến Futures (cần trước khi backtest Futures) |
-| **Backtest** | `./run.sh backtest-all` | So sánh 4 chiến lược Spot |
-| | `./run.sh backtest` | Chỉ so sánh Z-Score gốc với Hybrid |
+| **Tự động** | `./run.sh start` · `stop` · `restart` | Bật / tắt / bật lại mọi thứ chạy nền |
+| | `./run.sh logs hybrid` | Xem log trực tiếp của 1 bot |
+| | `./run.sh autostart on` / `off` | Tự bật khi mở máy + tự bật lại bot bị tắt + việc hằng tuần |
+| | `./run.sh weekly` | Tải dữ liệu mới + backtest (autostart tự chạy mỗi Chủ nhật) |
+| **Dữ liệu** | `./run.sh download` | Tải nến Spot mới |
+| | `./run.sh download 730 --prepend` | Tải thêm dữ liệu **cũ hơn** (lùi về 2 năm) |
+| | `./run.sh download-futures` | Tải nến Futures |
+| **Backtest** | `./run.sh backtest-all` | So sánh 4 chiến lược Spot trên toàn bộ dữ liệu |
 | | `./run.sh backtest-futures` | Backtest Futures |
-| | `./run.sh plot BTC/USDT` | Vẽ lệnh backtest lên biểu đồ (file trong `user_data/plot/`) |
+| | `./run.sh validate` | **Kiểm chứng từng giai đoạn 6 tháng** (10–20 phút) |
+| | `./run.sh plot BTC/USDT` | Vẽ lệnh backtest lên biểu đồ (`user_data/plot/`) |
 | **Kiểm tra** | `./run.sh check-bias` | Chiến lược có "nhìn trước tương lai" không (`No` là tốt) |
 | | `./run.sh hyperopt 200` | Tự tìm tham số tốt hơn (10–30 phút) |
 | | `./run.sh test` | Kiểm tra code còn chạy đúng |
-| **Chạy bot** | `./run.sh dryrun` · `dryrun-breakout` · `dryrun-dca` · `dryrun-futures` | Xem mục 3 |
-| | `./run.sh alert` | Bot **chỉ gửi cảnh báo** Telegram (không tự đặt lệnh) |
-| | `./run.sh dashboard` | Mở dashboard |
 | **Theo dõi** | `./run.sh status` | Cái gì đang chạy |
-| | `./run.sh trades` | Lịch sử lệnh bot Hybrid |
-| | `./run.sh trades-futures` | Lịch sử lệnh bot Futures |
-| **Cài đặt** | `./run.sh setup` | Cài lại từ đầu |
-| | `./run.sh ui` | Cài giao diện web FreqUI (1 lần) |
+| | `./run.sh trades` · `trades-futures` | Lịch sử lệnh bot Hybrid / Futures |
+| **Khác** | `./run.sh alert --once` | Alert bot quét thử 1 lần |
+| | `./run.sh ui` | Cài lại giao diện web FreqUI |
+| | `./run.sh help` | Xem mọi lệnh |
 
-**Thêm tuỳ chọn cho backtest** (gõ sau lệnh):
-
-| Thêm | Ví dụ | Nghĩa |
-|---|---|---|
-| `--timerange` | `./run.sh backtest-all --timerange 20261001-` | Chỉ thử từ 01/10/2026 |
-| `-p` | `./run.sh backtest-all -p BTC/USDT` | Chỉ thử BTC |
-| `--breakdown` | `./run.sh backtest-all --breakdown week` | Xem lãi/lỗ theo tuần |
-
-**Tuỳ chọn cho alert bot:**
-
-| Lệnh | Nghĩa |
-|---|---|
-| `./run.sh alert --once` | Quét 1 lần rồi thoát |
-| `./run.sh alert --legacy` | Báo y hệt bot cũ `4_alert_bot.py` |
-| `./run.sh alert --pairs BTC/USDT XRP/USDT` | Chọn coin theo dõi |
+**Tuỳ chọn cho backtest** (gõ sau lệnh): `--timerange 20261001-` (từ ngày), `-p BTC/USDT` (1 coin),
+`--breakdown week` (lãi/lỗ theo tuần).
 
 ---
 
-## 5. Lệnh Telegram
-
-Nhắn cho bot khi `./run.sh dryrun` đang chạy:
+## 3. Lệnh Telegram (gửi cho bot Hybrid)
 
 | Lệnh | Làm gì |
 |---|---|
 | `/status` | Lệnh đang mở |
-| `/profit` | Tổng lãi/lỗ |
-| `/daily` | Lãi/lỗ từng ngày |
-| `/balance` | Số dư |
-| `/trades` | Lệnh đã đóng gần nhất |
+| `/profit` · `/daily` | Tổng lãi/lỗ · lãi/lỗ từng ngày |
+| `/balance` · `/trades` | Số dư · lệnh đã đóng gần nhất |
 | `/stopentry` | **Ngừng mở lệnh mới** (lệnh cũ vẫn được quản lý) — cách dừng an toàn nhất |
 | `/start` | Cho bot chạy lại |
-| `/forceexit 3` | Đóng ngay lệnh số 3 (số lấy từ `/status`) |
-| `/forceexit all` | Đóng tất cả lệnh |
+| `/forceexit 3` · `/forceexit all` | Đóng ngay lệnh số 3 · đóng tất cả |
 | `/help` | Xem mọi lệnh |
 
 ---
 
-## 6. Gặp lỗi?
+## 4. Gặp lỗi?
 
 | Thấy | Làm |
 |---|---|
 | `no such file or directory: ./run.sh` | Gõ `cd ~/QuantFreqtrade` trước |
-| `Address already in use` | Chương trình đó đã chạy ở Terminal khác → `./run.sh status` |
-| `Conflict: terminated by other getUpdates` | 2 bot cùng dùng Telegram → tắt bớt 1 bot |
+| `Address already in use` | Chương trình đã chạy rồi → `./run.sh status` |
+| Trang FreqUI báo "not installed" | Tải lại bỏ cache: `Option + Cmd + R` |
+| FreqUI "Login failed" khi thêm bot | Kiểm tra bot đó đang chạy (`./run.sh status`) và đúng cổng |
+| Bot tắt mà không rõ vì sao | `./run.sh logs hybrid` (hoặc file `logs/watchdog.log`) |
 | Backtest báo thiếu dữ liệu | `./run.sh download` (Futures: `./run.sh download-futures`) |
 | Bot chạy cả ngày không có lệnh | Bình thường — chưa có tín hiệu. Xem "mức gần tín hiệu" ở tab 🏠 |
 | Gemini báo lỗi 404 / 503 | Không cần làm gì — hệ thống tự thử model khác |
