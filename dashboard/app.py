@@ -312,7 +312,7 @@ def signal_markers(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
 datasets = list_datasets()
 
 with st.sidebar:
-    H("""<div class="side-brand"><div class="logo">🦆</div>
+    H("""<div class="side-brand"><div class="logo"><span>🦆</span></div>
          <div><b>Lil_Duck Quant</b><small>Thống kê × Freqtrade</small></div></div>""")
     H('<div class="side-label">Thiết lập phân tích</div>')
     if datasets:
@@ -394,8 +394,9 @@ def render_hero(pairs: list[str], snap: dict | None, bt: dict | None, sentiment:
                if hybrid else '<div class="v">—</div><div class="s">chạy ./run.sh backtest</div>')
     H(f"""
     <div class="hero">
+      <div class="hero-bg"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i></div>
       <div>
-        <div class="eyebrow">● Hệ thống giao dịch định lượng · Freqtrade 2026</div>
+        <div class="eyebrow"><span class="live-dot"></span>Hệ thống giao dịch định lượng · Freqtrade 2026</div>
         <h1>Giao dịch crypto bằng <span class="grad">thống kê</span>,<br>không bằng cảm xúc.</h1>
         <p class="lead">Hệ thống tự nhận diện thị trường đang <b>đi ngang</b> hay <b>có xu hướng</b> (kiểm định ADF),
         chọn đúng chiến lược — Mean Reversion hoặc Trend Following — rồi tính khối lượng lệnh theo
@@ -418,6 +419,28 @@ def render_hero(pairs: list[str], snap: dict | None, bt: dict | None, sentiment:
         <div class="hstat"><div class="k">Kiểm soát rủi ro{T(TIPS["h_dd"], down=True, right=True)}</div>{dd_stat}</div>
       </div>
     </div>""")
+
+
+def render_tape(pairs: list[str], frames: dict, tick: dict) -> None:
+    """Băng giá chạy ngang (lặp liền mạch, rê chuột để dừng)."""
+    items = []
+    for p in pairs:
+        d, _ = frames[p]
+        t = tick.get(p, {})
+        last = t.get("last") or (float(d["close"].iloc[-1]) if not d.empty else None)
+        if last is None:
+            continue
+        pct = t.get("pct")
+        if pct is None and len(d) > 24:
+            pct = (d["close"].iloc[-1] / d["close"].iloc[-25] - 1) * 100
+        items.append(f'<span class="tape-item">{ui.coin_icon(p)}<b>{ui.esc(p.split("/")[0])}</b>'
+                     f'<span class="p">{ui.fmt_px(last)}</span>'
+                     f'<span class="c {ui.trend_cls(pct)}">{ui.fmt_pct(pct)}</span></span>')
+    if not items:
+        return
+    reps = max(1, -(-10 // len(items)))            # đủ dài để phủ màn hình rộng
+    one = "".join(items * reps)
+    H(f'<div class="tape" style="--dur:{len(items) * reps * 4.5:.0f}s"><div class="tape-track">{one}{one}</div></div>')
 
 
 def render_tickers(pairs: list[str], frames: dict, tick: dict) -> None:
@@ -559,6 +582,7 @@ with t_home:
     now = datetime.now(market_context.VN_TZ)
     ui.section("Thị trường", "Giá trực tiếp từ Binance Spot, biểu đồ 72 giờ gần nhất.",
                aside=f"{'🟢 Trực tiếp' if tick else '🟠 Dữ liệu đã tải (mất kết nối)'} · cập nhật {now:%H:%M:%S}")
+    render_tape(pairs, frames, tick)
     render_tickers(pairs, frames, tick)
 
     ui.section("Tín hiệu hệ thống", "Cùng logic với bot <b>QuantHybridStrategy</b>, tính trên nến 1h đã đóng. "

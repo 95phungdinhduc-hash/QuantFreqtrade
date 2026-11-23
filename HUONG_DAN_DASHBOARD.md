@@ -8,6 +8,15 @@ Số trên màn hình của bạn sẽ khác vì giá thay đổi liên tục, n
 > 💡 **Rê chuột vào dấu ⓘ "?"** cạnh mỗi chỉ số trên dashboard để xem giải thích ngắn ngay tại chỗ
 > (trên điện thoại: chạm vào dấu "?"). Tài liệu này là bản đầy đủ.
 
+> 🎨 **Hiệu ứng giao diện:**
+> - Số **đếm lên** khi vừa hiện ra.
+> - Giá **nháy xanh** khi tăng, **nháy đỏ** khi giảm lúc tự làm mới.
+> - Thẻ có tín hiệu LONG/SHORT có **viền sáng chạy vòng quanh**.
+> - Băng giá chạy ngang **dừng lại khi rê chuột** vào.
+>
+> Chỉ để dễ nhìn, không ảnh hưởng số liệu. Muốn tắt hết chuyển động: bật *Giảm chuyển động*
+> (macOS: Cài đặt → Trợ năng → Màn hình). Sửa giao diện tại `dashboard/theme.css` và `dashboard/fx.js`.
+
 > ⚠️ Dashboard là **công cụ phân tích theo quy tắc cố định**, không phải lời khuyên đầu tư.
 > Mọi bot đang chạy **tiền ảo (dry-run)**.
 
