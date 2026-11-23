@@ -30,8 +30,11 @@ load_env() {
 # Thông báo Telegram cho bot phụ (Breakout, DCA, Futures) qua WEBHOOK: bot chỉ GỬI tin, không đọc tin,
 # nên không tranh token với bot Hybrid (bot duy nhất nhận lệnh /status, /profit...).
 WEBHOOK_ENV=()
+bot_notify_on() { [[ "${BOT_TELEGRAM_NOTIFY:-false}" == true ]]; }  # 4 bot tiền ảo có nhắn Telegram không
+
 tg_webhook_env() {  # $1 = tên bot hiện trong tin nhắn
   WEBHOOK_ENV=()
+  bot_notify_on || return 0   # mặc định IM LẶNG: Telegram chỉ dành cho tín hiệu của alert bot
   [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]] || return 0
   local n=$'\n' b="[$1]"
   WEBHOOK_ENV=(
@@ -202,17 +205,22 @@ cmd_watchdog() {
   #      bot không xử lý vòng lặp nào (API /health) -> khởi động lại.
   #   Kèm: dọn log quá 20 MB.
   mkdir -p "$LOGDIR"
-  local st="$LOGDIR/.watchdog" now last since s f port body ts n msgs=()
+  local st="$LOGDIR/.watchdog" now last since s f port body ts n q msgs=()
   mkdir -p "$st"
   now="$(date +%s)"
-  wlog() { echo "$(date '+%F %T') $1" >> "$LOGDIR/watchdog.log"; msgs+=("$1"); }
+  # wlog "tin" [quiet]: luôn ghi log; chỉ nhắn Telegram khi không có "quiet" (việc của bot ảo chỉ nhắn
+  # khi BOT_TELEGRAM_NOTIFY=true — Telegram mặc định chỉ dành cho alert bot)
+  wlog() {
+    echo "$(date '+%F %T') $1" >> "$LOGDIR/watchdog.log"
+    if [[ "${2:-}" != quiet ]] || bot_notify_on; then msgs+=("$1"); fi
+  }
   fmt_t() { date -r "$1" '+%H:%M %d/%m'; }
 
   # 1. máy ngủ / tắt
   if [[ -f "$st/last_run" ]]; then
     last="$(cat "$st/last_run")"
     if (( now - last > 900 )); then
-      wlog "💤 Watchdog không chạy từ $(fmt_t "$last") đến $(fmt_t "$now") (~$(( (now - last) / 60 )) phút): máy ngủ, tắt hoặc gập nắp — bot không theo dõi thị trường trong khoảng này."
+      wlog "💤 Watchdog không chạy từ $(fmt_t "$last") đến $(fmt_t "$now") (~$(( (now - last) / 60 )) phút): máy ngủ, tắt hoặc gập nắp — alert bot không quét tín hiệu trong khoảng này."
     fi
   fi
   echo "$now" > "$st/last_run"
@@ -225,7 +233,7 @@ cmd_watchdog() {
   elif [[ -f "$st/net_down" ]]; then
     since="$(cat "$st/net_down")"; rm -f "$st/net_down"
     if (( now - since >= 600 )); then
-      wlog "📡 Mất kết nối Binance từ $(fmt_t "$since") đến $(fmt_t "$now") (~$(( (now - since) / 60 )) phút) — bot không nhận được giá trong khoảng này."
+      wlog "📡 Mất kết nối Binance từ $(fmt_t "$since") đến $(fmt_t "$now") (~$(( (now - since) / 60 )) phút) — alert bot không quét được tín hiệu trong khoảng này."
     fi
   fi
 
@@ -237,7 +245,8 @@ cmd_watchdog() {
     rm -f "$f"
     if svc_running "$s"; then continue; fi   # đang chạy trong Terminal -> không đụng vào
     cmd_start "$s" >> "$LOGDIR/watchdog.log" 2>&1
-    wlog "⚠️ $(svc_label "$s") bị tắt bất thường — đã tự bật lại."
+    case "$s" in alert|dashboard) q="" ;; *) q=quiet ;; esac   # bot tiền ảo: chỉ ghi log
+    wlog "⚠️ $(svc_label "$s") bị tắt bất thường — đã tự bật lại." $q
   done
 
   # 4. bot treo (chỉ xét khi có mạng: mất mạng thì bot đứng chờ là bình thường)
@@ -258,7 +267,7 @@ cmd_watchdog() {
       if (( n >= 2 )); then
         rm -f "$st/$s.bad"
         { cmd_stop "$s"; cmd_start "$s"; } >> "$LOGDIR/watchdog.log" 2>&1
-        wlog "🔁 $(svc_label "$s") bị treo (> 10 phút không xử lý) — đã khởi động lại."
+        wlog "🔁 $(svc_label "$s") bị treo (> 10 phút không xử lý) — đã khởi động lại." quiet
       fi
     done
   fi
@@ -407,6 +416,9 @@ main() {
     help|-h|--help) cmd_help ;;
     *)
       need_venv; load_env
+      # 🔒 KHOÁ CỨNG: mọi bot luôn chạy TIỀN ẢO, bất kể config hay .env ghi gì.
+      # Hệ thống này chỉ gửi tín hiệu để bạn TỰ đặt lệnh — không bao giờ tự giao dịch bằng tiền thật.
+      export FREQTRADE__DRY_RUN=true
       case "$cmd" in
         test)      "$PY" -m pytest -q tests "$@" ;;
         import)    "$PY" tools/import_legacy_db.py "$@" ;;
@@ -457,7 +469,9 @@ print(str(m[0]).replace(".meta.json",".zip") if m else "")')"
           fi ;;
         dryrun)
           capital_env hybrid "$CFG"
-          env ${CAP_ENV[@]+"${CAP_ENV[@]}"} \
+          local tg_hybrid="${FREQTRADE__TELEGRAM__ENABLED:-false}"
+          bot_notify_on || tg_hybrid=false   # im lặng (BOT_TELEGRAM_NOTIFY=false trong .env)
+          env ${CAP_ENV[@]+"${CAP_ENV[@]}"} FREQTRADE__TELEGRAM__ENABLED="$tg_hybrid" \
             "$FT" trade -c "$CFG" --db-url "sqlite:///user_data/tradesv3.hybrid.dryrun.sqlite" "$@" ;;
         dryrun-futures)
           # Chỉ 1 bot được dùng 1 Telegram token cùng lúc -> mặc định tắt Telegram cho bot futures.

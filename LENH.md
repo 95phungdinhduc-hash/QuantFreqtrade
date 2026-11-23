@@ -25,7 +25,7 @@ Hoặc VS Code → `Cmd + Shift + P` → **Tasks: Run Task** → **▶️ BẬT 
 
 **Tự động hoàn toàn** — đang **BẬT** trên máy bạn (`./run.sh autostart off` để tắt):
 - Mở máy → tự bật dashboard, cả 4 bot và alert bot.
-- Mỗi **5 phút** → bot nào tắt bất thường (crash…) hoặc **bị treo > 10 phút** thì **tự bật lại** và nhắn Telegram báo bạn.
+- Mỗi **5 phút** → bot nào tắt bất thường (crash…) hoặc **bị treo > 10 phút** thì **tự bật lại** (chỉ nhắn Telegram nếu là alert bot).
   Máy ngủ / gập nắp hoặc mất kết nối Binance ≥ 10 phút → khi có lại sẽ nhắn Telegram báo bot đã "mù" từ mấy giờ đến mấy giờ.
   Nhật ký: `logs/watchdog.log`.
   Bot bạn tự tắt (nút Tắt / `./run.sh stop`) sẽ **không** bị bật lại.
@@ -45,8 +45,7 @@ Hoặc VS Code → `Cmd + Shift + P` → **Tasks: Run Task** → **▶️ BẬT 
 | **Futures** (Long + Short, đòn bẩy ≤ `max_leverage`) | Giảm mạnh, muốn Short | `./run.sh dryrun-futures` | http://127.0.0.1:8081 |
 
 - Đăng nhập web: `freqtrader` / mật khẩu ở dòng `FREQTRADE__API_SERVER__PASSWORD` trong file `.env`.
-- **Cả 4 bot đều nhắn Telegram** khi vào/thoát lệnh (tin có tên bot, ví dụ `🟢 [Breakout] VÀO LỆNH…`).
-- **Chỉ bot Hybrid nhận lệnh** `/status`, `/profit`… Các bot khác xem chi tiết trên web hoặc dashboard.
+- 4 bot chạy **tiền ảo, im lặng** — chỉ để đo xem chiến lược có lời thật không. Telegram chỉ nhận tín hiệu alert bot (mục 4).
 
 **Bộ lọc thị trường (đang BẬT):** BTC đóng cửa ngày **dưới SMA200 ngày** → thị trường chung đang giảm →
 3 bot Spot **không mở lệnh Long mới**, bot Futures **chỉ được Short**, alert bot **chỉ báo tín hiệu Short**
@@ -122,10 +121,19 @@ Những việc **bạn phải tự làm**:
 
 ---
 
-## 4. Lệnh Telegram (gửi cho bot Hybrid)
+## 4. Telegram nhận được gì?
 
-| Lệnh | Làm gì |
-|---|---|
+**Chỉ tín hiệu của alert bot** — mỗi tin có hướng dẫn **Spot** (mua bao nhiêu, đặt OCO chốt lời/cắt lỗ) và
+**Futures** (Isolated, đòn bẩy, khối lượng, TP/SL, lỗ tối đa). **Bạn tự quyết và tự đặt lệnh trên Binance.**
+
+- 4 bot tiền ảo chạy **im lặng** (không nhắn Telegram, không nhận lệnh `/status`). Xem kết quả của chúng ở
+  dashboard → tab 🤖 Bot Freqtrade, hoặc `./run.sh trades`.
+- Watchdog chỉ nhắn khi **alert bot** bị tắt, hoặc máy ngủ / mất mạng làm alert bot không quét được.
+- Muốn 4 bot ảo nhắn Telegram trở lại: sửa `BOT_TELEGRAM_NOTIFY=true` trong `.env` → `./run.sh restart all`.
+- 🔒 **Khoá cứng:** `./run.sh` luôn ép mọi bot chạy **tiền ảo**, kể cả khi config ghi khác. Hệ thống không bao giờ
+  tự giao dịch bằng tiền của bạn.
+
+---|---|
 | `/status` | Lệnh đang mở |
 | `/profit` · `/daily` | Tổng lãi/lỗ · lãi/lỗ từng ngày |
 | `/balance` · `/trades` | Số dư · lệnh đã đóng gần nhất |

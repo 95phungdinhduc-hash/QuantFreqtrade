@@ -1,5 +1,6 @@
 """
-Kiểm tra "đã đủ điều kiện dùng tiền thật chưa?" — chấm từng tiêu chí ✅ / ❌ / ⚠️.
+Kiểm tra "tín hiệu đã đủ đáng tin để làm theo bằng tiền thật chưa?" — chấm từng tiêu chí ✅ / ❌ / ⚠️.
+Bot luôn chạy tiền ảo (khoá cứng trong run.sh); tiền thật là do BẠN tự đặt lệnh theo tín hiệu alert bot.
 
 Chạy:  ./run.sh readiness
 
@@ -167,6 +168,7 @@ def check_security() -> None:
         add(g, None, "Token cũ", "không tìm thấy code cũ để so")
 
     has_key = bool(env.get("FREQTRADE__EXCHANGE__KEY"))
+    add(g, True, "Khoá cứng tiền ảo trong ./run.sh", "bot không thể tự giao dịch bằng tiền thật")
     add(g, None, "Khoá API sàn: TẮT quyền rút tiền, chỉ cho IP máy chạy bot, dùng tài khoản con",
         "đã có khoá — tự kiểm tra trên Binance" if has_key else "chưa có khoá (đúng, vì đang dry-run)")
 
@@ -187,10 +189,11 @@ def main() -> None:
     print(f"\nĐạt {passed}/{len(results)} tiêu chí · {fails} chưa đạt · "
           f"{sum(st == '⚠️' for _, st, _, _ in results)} cần tự kiểm tra")
     if fails:
-        print("👉 CHƯA SẴN SÀNG cho tiền thật — tiếp tục dry-run và xử lý các mục ❌.")
+        print("👉 CHƯA nên làm theo tín hiệu bằng tiền thật — cứ theo dõi tín hiệu và để bot ảo tích luỹ "
+              "kết quả, xử lý các mục ❌.")
     else:
-        print("👉 Đạt các tiêu chí kỹ thuật. Nếu thử tiền thật: 1 bot Spot, số tiền nhỏ chấp nhận mất, "
-              "kiểm tra các mục ⚠️ trước.")
+        print("👉 Đạt các tiêu chí kỹ thuật. Nếu tự vào lệnh theo tín hiệu: ưu tiên Spot, số tiền nhỏ "
+              "chấp nhận mất, luôn đặt SL ngay khi vào lệnh.")
     print("(Danh sách kiểm tra kỹ thuật — không phải lời khuyên đầu tư.)")
 
 

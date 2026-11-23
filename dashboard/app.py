@@ -1092,11 +1092,11 @@ with t_news:
 # TAB 5 — BOT FREQTRADE (LIVE)
 # ==========================================================================================
 CONTROL = [  # (tên dịch vụ trong ./run.sh start, nhãn, cổng, mô tả)
-    ("hybrid", "🔄 Bot Hybrid (Spot)", 8080, "Bot chính · nhận lệnh Telegram"),
+    ("hybrid", "🔄 Bot Hybrid (Spot)", 8080, "Tiền ảo · chạy im lặng"),
     ("breakout", "🚀 Bot Breakout", 8082, "Mua theo đà"),
     ("dca", "🧺 Bot Smart DCA", 8083, "Tích luỹ từng phần"),
     ("futures", "⚡ Bot Futures", 8081, "Long + Short, đòn bẩy"),
-    ("alert", "🔔 Alert bot", None, "Chỉ gửi cảnh báo Telegram"),
+    ("alert", "🔔 Alert bot", None, "Gửi tín hiệu có SL/TP lên Telegram"),
 ]
 
 
@@ -1152,8 +1152,8 @@ def control_panel():
                     st.rerun()
             else:
                 st.caption("Bật bằng tay trong Terminal → tắt bằng `Ctrl + C` ở Terminal đó.")
-    st.caption("Cả 4 bot nhắn Telegram khi vào/thoát lệnh; chỉ bot Hybrid nhận lệnh /status, /profit. "
-               "Với autostart, bot bị tắt bất thường sẽ tự bật lại sau tối đa 5 phút.")
+    st.caption("4 bot luôn chạy TIỀN ẢO và im lặng (không nhắn Telegram) — chỉ để đo chiến lược. Telegram chỉ "
+               "nhận tín hiệu của alert bot để bạn tự đặt lệnh. Bot tắt bất thường tự bật lại sau tối đa 5 phút.")
 
 
 with t_bot:

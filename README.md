@@ -143,7 +143,8 @@ cd ~/QuantFreqtrade
 ```
 Bot giả lập ví 1000 USDT, giao dịch theo `QuantHybridStrategy` với giá thật của Binance nhưng **không đặt lệnh thật**.
 - Theo dõi trên dashboard ở tab "🤖 Bot Freqtrade"
-- Hoặc qua Telegram: nhắn cho bot `/status`, `/profit`, `/balance`, `/daily`, `/stopentry`, `/help`
+- Telegram mặc định chỉ nhận tín hiệu alert bot; muốn điều khiển bot Hybrid qua `/status`, `/profit`… thì đặt
+  `BOT_TELEGRAM_NOTIFY=true` trong `.env` (xem LENH.md mục 4)
 - Hoặc giao diện web chính chủ **FreqUI**: chạy `./run.sh ui` một lần, rồi mở http://127.0.0.1:8080
   (đăng nhập bằng `freqtrader` và mật khẩu ở dòng `FREQTRADE__API_SERVER__PASSWORD` trong `.env`)
 
