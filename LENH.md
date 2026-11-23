@@ -1,6 +1,7 @@
 # 📘 Lệnh hay dùng — QuantFreqtrade
 
 Bản ngắn để tra nhanh. Cần giải thích từng kết quả và ví dụ chi tiết → [HUONG_DAN_CHI_TIET.md](HUONG_DAN_CHI_TIET.md).
+Đọc hiểu từng tab, từng chỉ số trên dashboard → [HUONG_DAN_DASHBOARD.md](HUONG_DAN_DASHBOARD.md).
 
 ---
 
@@ -24,7 +25,9 @@ Hoặc VS Code → `Cmd + Shift + P` → **Tasks: Run Task** → **▶️ BẬT 
 
 **Tự động hoàn toàn** — đang **BẬT** trên máy bạn (`./run.sh autostart off` để tắt):
 - Mở máy → tự bật dashboard, cả 4 bot và alert bot.
-- Mỗi **5 phút** → bot nào tắt bất thường (lỗi mạng, crash…) thì **tự bật lại** và nhắn Telegram báo bạn.
+- Mỗi **5 phút** → bot nào tắt bất thường (crash…) hoặc **bị treo > 10 phút** thì **tự bật lại** và nhắn Telegram báo bạn.
+  Máy ngủ / gập nắp hoặc mất kết nối Binance ≥ 10 phút → khi có lại sẽ nhắn Telegram báo bot đã "mù" từ mấy giờ đến mấy giờ.
+  Nhật ký: `logs/watchdog.log`.
   Bot bạn tự tắt (nút Tắt / `./run.sh stop`) sẽ **không** bị bật lại.
 - Mỗi **Chủ nhật 8:00** → tự tải dữ liệu mới và chạy backtest.
 
@@ -39,7 +42,7 @@ Hoặc VS Code → `Cmd + Shift + P` → **Tasks: Run Task** → **▶️ BẬT 
 | **Hybrid** | Đi ngang hoặc xu hướng nhẹ | `./run.sh dryrun` | http://127.0.0.1:8080 |
 | **Breakout** | Tăng mạnh, phá đỉnh | `./run.sh dryrun-breakout` | http://127.0.0.1:8082 |
 | **Smart DCA** | Hoảng loạn, muốn tích luỹ dần | `./run.sh dryrun-dca` | http://127.0.0.1:8083 |
-| **Futures** (Long + Short, đòn bẩy) | Giảm mạnh, muốn Short | `./run.sh dryrun-futures` | http://127.0.0.1:8081 |
+| **Futures** (Long + Short, đòn bẩy tối đa x2) | Giảm mạnh, muốn Short | `./run.sh dryrun-futures` | http://127.0.0.1:8081 |
 
 - Đăng nhập web: `freqtrader` / mật khẩu ở dòng `FREQTRADE__API_SERVER__PASSWORD` trong file `.env`.
 - **Cả 4 bot đều nhắn Telegram** khi vào/thoát lệnh (tin có tên bot, ví dụ `🟢 [Breakout] VÀO LỆNH…`).

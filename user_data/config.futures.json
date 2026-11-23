@@ -17,7 +17,8 @@
         "risk_pct": 1.5,
         "sync_risk_from_dashboard": true,
         "news_filter": true,
-        "market_filter": true
+        "market_filter": true,
+        "max_leverage": 2
     },
     "unfilledtimeout": {
         "entry": 10,

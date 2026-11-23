@@ -44,6 +44,78 @@ ADF_THRESHOLD = 0.20
 Z_ENTRY = 2.0
 TREND_GAP = 1.0
 
+# Giải thích hiện khi rê chuột vào dấu "?" (dùng chung cho mọi tab)
+TIPS = {
+    "price": "Giá khớp gần nhất. Tab Tổng quan lấy trực tiếp từ Binance (60 giây/lần); tab Phân tích là giá đóng "
+             "cửa của nến cuối trong dữ liệu đã tải.",
+    "chg24": "% thay đổi so với đúng 24 giờ trước. Xanh = tăng, đỏ = giảm.",
+    "z": "Z-Score = (giá − trung bình 50 nến) ÷ độ lệch chuẩn σ. ≤ −2: rẻ bất thường (quá bán) · ≥ +2: đắt bất "
+         "thường (quá mua) · từ −2 đến +2: bình thường, chưa có lợi thế.",
+    "adf": "Kiểm định ADF trên 200 nến 1h gần nhất (giống bot). p < 0,20: thị trường ĐI NGANG → đánh hồi quy "
+           "Z-Score. p ≥ 0,20: CÓ XU HƯỚNG → đánh theo EMA.",
+    "adf_all": "ADF trên toàn bộ dữ liệu đang xem (tối đa 5000 nến) — bức tranh dài hạn, chỉ để tham khảo. "
+               "Bot dùng cột ADF 200.",
+    "ema_gap": "EMA20 cao hơn EMA50 bao nhiêu %. > +1%: xu hướng tăng rõ · < −1%: xu hướng giảm rõ · "
+               "từ −1% đến +1%: chưa rõ xu hướng.",
+    "kurt": "Độ 'béo đuôi' của lợi nhuận từng nến. > 3: hay có cú tăng/giảm đột ngột lớn bất thường → đặt cắt lỗ "
+            "cẩn thận, tránh đòn bẩy cao.",
+    "vol24": "Tổng giá trị giao dịch 24h (USDT). Càng lớn càng dễ mua bán, ít bị trượt giá.",
+    "signal": "Tín hiệu hiện tại theo logic bot Hybrid: Long/Short (Mean Reversion), Xu hướng tăng/giảm (Trend), "
+              "hoặc Chờ / Đứng ngoài. Chưa tính bộ lọc thị trường SMA200.",
+    "entry": "Giá hiện tại — giá tham khảo nếu vào lệnh ngay.",
+    "sl": "Cắt lỗ: chạm giá này thì chấp nhận sai và thoát. Đặt cách giá vào 2 độ lệch chuẩn (2σ), giống bot.",
+    "tp": "Chốt lời. Mean Reversion: về giá trung bình (ít nhất 1,5σ). Trend: cách giá vào 3σ.",
+    "size": "Số USDT nên vào lệnh = số tiền chấp nhận mất ÷ khoảng cách tới cắt lỗ. Cắt lỗ càng xa thì lệnh "
+            "càng nhỏ, nên rủi ro luôn cố định.",
+    "risk_usd": "Số tiền mất nếu giá chạm cắt lỗ = vốn × % rủi ro mỗi lệnh (đặt ở tab 🛡️).",
+    "rr": "Tỷ lệ lời/lỗ. 1 : 1,5 = chấp nhận mất 1 đồng để có thể lời 1,5 đồng. Từ 1 : 1,5 trở lên là ổn.",
+    "near": "Còn bao xa thì có tín hiệu. Đi ngang: |Z| ÷ 2. Có xu hướng: |EMA gap| ÷ 1%. Đạt 100% là có tín hiệu.",
+    "bot_pill": "Trạng thái bot Hybrid (cổng 8080). DRY-RUN = tiền ảo, LIVE = tiền thật.",
+    "session": "Phiên giao dịch theo giờ VN. Á 6h–14h: đi ngang · Âu 14h–19h: biến động vừa · Mỹ+Âu 19h–23h: "
+               "sóng mạnh nhất · Mỹ 23h–6h: chạy theo xu hướng.",
+    "news": "Tâm lý tin tức tổng = số tin tốt − số tin xấu (tab 📰). Điểm ≤ −4 thì bot ngừng mở lệnh Long.",
+    "mkt": "Bộ lọc thị trường: BTC đóng cửa ngày so với trung bình 200 ngày. Dưới SMA200 → thị trường giảm → bot "
+           "Spot không mở Long, Futures chỉ Short, alert bot chỉ báo Short.",
+    "h_pairs": "Số coin bot đang giao dịch (pair_whitelist trong user_data/config.json).",
+    "h_risk": "% vốn chấp nhận mất mỗi lệnh — cả 4 bot dùng thật. Số tiền tính trên vốn khai ở tab 🛡️.",
+    "h_strat": "Hybrid, Breakout, Smart DCA, Futures + bản Z-Score gốc để so sánh. Chi tiết ở tab 🧭 → Thư viện.",
+    "h_dd": "Sụt vốn tối đa của bot Hybrid trong lần backtest gần nhất: mức giảm lớn nhất từ đỉnh xuống đáy "
+            "của tài khoản.",
+    "profit_all": "Tổng lãi/lỗ = lệnh đã đóng + lãi/lỗ tạm tính của lệnh đang mở.",
+    "profit_closed": "Lãi/lỗ của các lệnh ĐÃ ĐÓNG (đã chốt thật).",
+    "closed_n": "Số lệnh đã vào và đã thoát.",
+    "winloss": "Số lệnh có lãi / số lệnh bị lỗ.",
+    "open_n": "Số lệnh bot đang giữ, chưa thoát.",
+    "bt_profit": "Lợi nhuận % trên vốn ban đầu trong cả giai đoạn backtest.",
+    "dd": "Sụt vốn tối đa (Max Drawdown): mức giảm lớn nhất của tài khoản từ đỉnh xuống đáy. Quan trọng ngang "
+          "lợi nhuận — DD càng nhỏ càng dễ chịu đựng.",
+    "trades": "Tổng số lệnh trong giai đoạn.",
+    "hold": "Lợi nhuận nếu chỉ mua rồi giữ các coin suốt giai đoạn — mốc để so sánh chiến lược.",
+    "mood": "Trung bình điểm các coin. ≤ −40 rất tiêu cực · −40…−15 tiêu cực · −15…+15 trung lập · "
+            "+15…+40 tích cực · ≥ +40 rất tích cực.",
+    "regimes": "Đi ngang: ADF < 0,20. Tăng: giá trên EMA50 khung 4h VÀ EMA20 > EMA50. Giảm: ngược lại. "
+               "Chưa rõ: hai điều kiện trái nhau.",
+    "best": "Coin có điểm đánh giá cao nhất lúc này và gợi ý hành động cho nó.",
+    "score": "Điểm −100…+100 = (35×Xu hướng + 20×Động lượng + 20×Định giá + 10×Ổn định + 15×Tin tức) ÷ 2. "
+             "Dương = ủng hộ mua, âm = bất lợi.",
+    "f_trend": "Xu hướng (35%): +1 nếu giá trên EMA50 khung 4h, +1 nếu EMA20 > EMA50 (ngược lại −1). Từ −2 đến +2.",
+    "f_momentum": "Động lượng (20%): % thay đổi giá 7 ngày ÷ 5. Tăng 10%/tuần = +2, giảm 10%/tuần = −2.",
+    "f_value": "Định giá (20%): −Z ÷ 1,25. Giá rẻ (Z âm) được điểm dương, giá đắt (Z dương) bị điểm âm.",
+    "f_volatility": "Độ ổn định (10%): biến động 24h so với 30 ngày qua. Đang yên nhất tháng = +2, "
+                    "đang dữ dội nhất tháng = −2.",
+    "f_sentiment": "Tin tức (15%): điểm tin ÷ 3. Điểm tin ≥ +6 = +2, ≤ −6 = −2.",
+    "zone": "Vùng giá gợi ý đặt lệnh chờ — chưa nên vào ngay ở giá hiện tại.",
+    "evidence": "Kết quả backtest gần nhất của bot tương ứng với gợi ý này — để biết trong quá khứ nó hiệu quả "
+                "đến đâu.",
+    "kelly": "Half-Kelly: % vốn tối ưu cho mỗi lệnh theo xác suất, tính từ tỷ lệ thắng và lời/lỗ trung bình "
+             "của lệnh backtest thật (lấy một nửa cho an toàn). 0% = chiến lược không có lợi thế.",
+    "winrate": "Tỷ lệ thắng = số lệnh có lãi ÷ tổng số lệnh. Tỷ lệ thắng thấp vẫn có thể lãi nếu lệnh lời "
+               "lớn hơn nhiều lệnh lỗ.",
+}
+RSI_TIP = ("Chế độ thị trường (theo ADF + EMA khung 4h) · RSI 14 nến: < 30 quá bán, > 70 quá mua · "
+           "% thay đổi giá 7 ngày qua.")
+T = ui.tip
+
 st.set_page_config(page_title="Lil_Duck Quant · Freqtrade", page_icon="🦆", layout="wide",
                    initial_sidebar_state="auto")  # auto: máy tính mở sẵn, điện thoại tự thu gọn
 ui.inject_css()
@@ -123,6 +195,23 @@ def bot_snapshot(url: str) -> dict | None:
     except Exception as e:
         auth = "401" in str(e) or "403" in str(e)
         return {"error": str(e), "auth": auth}
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def bot_capital() -> tuple[float | None, str]:
+    """Vốn thật của bot Hybrid: tổng số dư qua API (live hoặc dry-run), không được thì dry_run_wallet trong config."""
+    try:
+        bal = FreqtradeClient(url=settings.FT_API_URL, timeout=3).balance()
+        total = float(bal.get("total") or 0)
+        if total > 0:
+            return total, "số dư bot Hybrid hiện tại"
+    except Exception:
+        pass
+    try:
+        cfg = json.loads((settings.USER_DATA / "config.json").read_text())
+        return float(cfg.get("dry_run_wallet", 1000)), "ví ảo dry-run trong config"
+    except Exception:
+        return None, ""
 
 
 def latest_backtest(strategy: str = "QuantHybridStrategy") -> Path | None:
@@ -226,19 +315,25 @@ with st.sidebar:
     if datasets:
         labels = [f"{p} · {tf}" for p, tf in datasets]
         default_label = "BTC/USDT · 1h"
-        choice = st.selectbox("Tài sản", labels,
+        choice = st.selectbox("Tài sản", labels, help="Coin và khung nến dùng cho tab 📈 Phân tích, 🛡️ Vốn & "
+                              "Rủi ro và ma trận tương quan ở 🎯 Screener. Chỉ hiện những gì đã tải về máy.",
                               index=labels.index(default_label) if default_label in labels else 0)
         pair, tf = datasets[labels.index(choice)]
     else:
         pair, tf = "BTC/USDT", "1h"
-    window = st.slider("Chu kỳ Z-Score (nến)", 10, 200, 50)
+    window = st.slider("Chu kỳ Z-Score (nến)", 10, 200, 50,
+                       help="Số nến để tính trung bình và độ lệch chuẩn cho Z-Score. Bot luôn dùng 50 — đổi số này "
+                            "chỉ để xem thử trên dashboard, không thay đổi bot.")
 
     H('<div class="side-label">Dữ liệu (dùng chung với Freqtrade)</div>')
     with st.form("download_form", border=True):
         sym = st.multiselect("Cặp coin", ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT",
-                                         "ADA/USDT"], default=["BTC/USDT"])
-        tfs = st.multiselect("Khung thời gian", ["15m", "1h", "4h", "1d"], default=["1h", "4h"])
-        days = st.number_input("Số ngày", 30, 1500, 365, step=30)
+                                         "ADA/USDT"], default=["BTC/USDT"],
+                             help="Coin muốn tải nến từ Binance về máy.")
+        tfs = st.multiselect("Khung thời gian", ["15m", "1h", "4h", "1d"], default=["1h", "4h"],
+                             help="Độ dài mỗi nến. Bot dùng 1h (chính), 4h và 1d (lọc), 15m (backtest chi tiết).")
+        days = st.number_input("Số ngày", 30, 1500, 365, step=30,
+                               help="Tải bao nhiêu ngày gần nhất. Dữ liệu cũ đã có được giữ, chỉ nối thêm phần mới.")
         if st.form_submit_button("⬇️  Tải / cập nhật từ Binance", type="primary", width="stretch") \
                 and sym and tfs:
             with st.spinner("Freqtrade đang tải dữ liệu..."):
@@ -277,19 +372,20 @@ def render_hero(pairs: list[str], snap: dict | None, bt: dict | None, sentiment:
     if snap and "cfg" in snap:
         cfg = snap["cfg"]
         bot_pill = (f'<span class="pill"><span class="dot on"></span>Bot đang chạy · '
-                    f'{"DRY-RUN" if cfg.get("dry_run") else "LIVE"} · {ui.esc(str(cfg.get("trading_mode")))}</span>')
+                    f'{"DRY-RUN" if cfg.get("dry_run") else "LIVE"} · {ui.esc(str(cfg.get("trading_mode")))}'
+                    f'{T(TIPS["bot_pill"], down=True)}</span>')
     elif snap:
         bot_pill = ('<span class="pill"><span class="dot warn"></span>'
                     + ("Bot chạy nhưng sai mật khẩu API" if snap.get("auth") else "Bot đang khởi động…")
-                    + '</span>')
+                    + T(TIPS["bot_pill"], down=True) + '</span>')
     else:
-        bot_pill = '<span class="pill"><span class="dot off"></span>Bot chưa chạy</span>'
+        bot_pill = f'<span class="pill"><span class="dot off"></span>Bot chưa chạy{T(TIPS["bot_pill"], down=True)}</span>'
     session = market_context.trading_session()
     mr = market_regime() if market_filter_enabled() else None
     mkt_pill = "" if mr is None else (
         f'<span class="pill"><span class="dot {"on" if mr["up"] else "off"}"></span>'
         f'BTC {"trên" if mr["up"] else "dưới"} SMA200 ngày ({mr["gap"]:+.1f}%) · '
-        f'{"bot được mở Long" if mr["up"] else "bot đứng ngoài lệnh Long"}</span>')
+        f'{"bot được mở Long" if mr["up"] else "bot đứng ngoài lệnh Long"}{T(TIPS["mkt"], down=True)}</span>')
     hybrid = next((r for r in (bt or {}).get("rows", []) if r["name"] == "QuantHybridStrategy"), None)
     dd_stat = (f'<div class="v">{hybrid["dd"]:.1f}%</div><div class="s">sụt vốn tối đa khi backtest</div>'
                if hybrid else '<div class="v">—</div><div class="s">chạy ./run.sh backtest</div>')
@@ -302,21 +398,21 @@ def render_hero(pairs: list[str], snap: dict | None, bt: dict | None, sentiment:
         chọn đúng chiến lược — Mean Reversion hoặc Trend Following — rồi tính khối lượng lệnh theo
         <b>% rủi ro</b> bạn đặt. Mọi tín hiệu đều kiểm chứng được bằng backtest.</p>
         <div class="pills">{bot_pill}
-          <span class="pill">🕒 {ui.esc(session)}</span>
-          <span class="pill">📰 Tin tức: {ui.esc(sentiment)}</span>{mkt_pill}</div>
+          <span class="pill">🕒 {ui.esc(session)}{T(TIPS["session"], down=True)}</span>
+          <span class="pill">📰 Tin tức: {ui.esc(sentiment)}{T(TIPS["news"], down=True)}</span>{mkt_pill}</div>
         <div class="cta">
           <a class="btn primary" href="#tin-hieu">Xem tín hiệu hôm nay ↓</a>
           <a class="btn ghost" href="http://127.0.0.1:8080" target="_blank">Mở bot FreqUI ↗</a>
         </div>
       </div>
       <div class="hero-stats">
-        <div class="hstat"><div class="k">Theo dõi</div><div class="v">{len(pairs)} cặp</div>
+        <div class="hstat"><div class="k">Theo dõi{T(TIPS["h_pairs"], down=True)}</div><div class="v">{len(pairs)} cặp</div>
           <div class="s">{ui.esc(" · ".join(p.split("/")[0] for p in pairs))}</div></div>
-        <div class="hstat"><div class="k">Rủi ro mỗi lệnh</div><div class="v">{risk_pct:.1f}%</div>
+        <div class="hstat"><div class="k">Rủi ro mỗi lệnh{T(TIPS["h_risk"], down=True, right=True)}</div><div class="v">{risk_pct:.1f}%</div>
           <div class="s">≈ ${capital * risk_pct / 100:,.2f} trên vốn ${capital:,.0f}</div></div>
-        <div class="hstat"><div class="k">Chiến lược</div><div class="v">5 bot</div>
+        <div class="hstat"><div class="k">Chiến lược{T(TIPS["h_strat"], down=True)}</div><div class="v">5 bot</div>
           <div class="s">Hồi quy · Xu hướng · Breakout · DCA · Futures</div></div>
-        <div class="hstat"><div class="k">Kiểm soát rủi ro</div>{dd_stat}</div>
+        <div class="hstat"><div class="k">Kiểm soát rủi ro{T(TIPS["h_dd"], down=True, right=True)}</div>{dd_stat}</div>
       </div>
     </div>""")
 
@@ -343,10 +439,10 @@ def render_tickers(pairs: list[str], frames: dict, tick: dict) -> None:
           <div class="card-head"><div class="sym">{ui.coin_icon(p)}<div>{ui.esc(p.split('/')[0])}
             <small>{ui.esc(p)}</small></div></div>{ui.badge(sig['label'], sig['kind'])}</div>
           <div class="px">{ui.fmt_px(last)}</div>
-          <span class="chg {cls}">{ui.fmt_pct(pct)} 24h</span>
+          <span class="chg {cls}">{ui.fmt_pct(pct)} 24h</span>{T(TIPS["chg24"])}
           {spark}
-          <div class="meta"><span>Z-Score <b>{z:+.2f}σ</b></span>
-            <span>Vol 24h <b>{f'${vol / 1e6:,.0f}M' if vol else '—'}</b></span></div>
+          <div class="meta"><span>Z-Score{T(TIPS["z"])} <b>{z:+.2f}σ</b></span>
+            <span>Vol 24h{T(TIPS["vol24"], right=True)} <b>{f'${vol / 1e6:,.0f}M' if vol else '—'}</b></span></div>
         </div>""")
     H(f'<div class="grid">{"".join(cards)}</div>')
 
@@ -365,15 +461,15 @@ def render_signals(pairs: list[str], frames: dict, tick: dict) -> None:
             plan = plan_position(capital, risk_pct, price, float(r["rolling_std"]),
                                  float(r["rolling_mean"]) if s["mr"] else None, is_long=s["is_long"],
                                  sl_std_mult=2.0, tp_std_mult=1.5 if s["mr"] else 3.0)
-            body += [ui.kv("Giá vào tham khảo", ui.fmt_px(price)),
-                     ui.kv("Cắt lỗ (2σ)", ui.fmt_px(plan.stop_loss), "down"),
-                     ui.kv("Chốt lời", ui.fmt_px(plan.take_profit), "up"),
-                     ui.kv("Quy mô lệnh", f"${plan.position_usd:,.2f}"),
-                     ui.kv("Rủi ro nếu chạm SL", f"-${plan.risk_usd:,.2f}", "down"),
-                     ui.kv("Tỷ lệ lời/lỗ", f"1 : {plan.rr_ratio:.1f}")]
+            body += [ui.kv("Giá vào tham khảo", ui.fmt_px(price), help=TIPS["entry"]),
+                     ui.kv("Cắt lỗ (2σ)", ui.fmt_px(plan.stop_loss), "down", help=TIPS["sl"]),
+                     ui.kv("Chốt lời", ui.fmt_px(plan.take_profit), "up", help=TIPS["tp"]),
+                     ui.kv("Quy mô lệnh", f"${plan.position_usd:,.2f}", help=TIPS["size"]),
+                     ui.kv("Rủi ro nếu chạm SL", f"-${plan.risk_usd:,.2f}", "down", help=TIPS["risk_usd"]),
+                     ui.kv("Tỷ lệ lời/lỗ", f"1 : {plan.rr_ratio:.1f}", help=TIPS["rr"])]
         else:
             body.append(ui.meter(s["progress"], s["need"], s["now"]))
-            body.append(f'<div class="meta" style="margin-top:10px"><span>Mức gần tín hiệu</span>'
+            body.append(f'<div class="meta" style="margin-top:10px"><span>Mức gần tín hiệu{T(TIPS["near"])}</span>'
                         f'<b>{min(s["progress"], 1) * 100:.0f}%</b></div>')
         glow = {"long": "glow-long", "short": "glow-short"}.get(s["kind"], "")
         cards.append(f"""
@@ -381,7 +477,7 @@ def render_signals(pairs: list[str], frames: dict, tick: dict) -> None:
           <div class="card-head"><div class="sym">{ui.coin_icon(p)}<div>{ui.esc(p)}
             <small>Nến 1h đã đóng · {r['date']:%H:%M %d/%m} UTC</small></div></div>
             {ui.badge(s['label'], s['kind'])}</div>
-          <div class="strat">{ui.esc(s['strat'])}</div>
+          <div class="strat">{ui.esc(s['strat'])}{T(TIPS["signal"])}</div>
           {''.join(body)}
         </div>""")
     H(f'<div class="grid wide">{"".join(cards)}</div>')
@@ -398,10 +494,10 @@ def render_performance(snap: dict | None, bt: dict | None) -> None:
                 {ui.badge('Dry-run' if cfg.get('dry_run') else 'Live', 'info' if cfg.get('dry_run') else 'warn')}</div>
               <div class="strat">{ui.esc(str(cfg.get('strategy')))} · {ui.esc(str(cfg.get('trading_mode')))}</div>
               <div class="big {ui.trend_cls(pct)}">{ui.fmt_pct(pct)}</div>
-              <div class="strat">Tổng lãi/lỗ (gồm lệnh đang mở) · {prof.get('profit_all_coin', 0):,.2f} USDT</div>
-              {ui.kv('Số lệnh đã đóng', str(prof.get('closed_trade_count', prof.get('trade_count', 0))))}
-              {ui.kv('Thắng / Thua', f"{prof.get('winning_trades', 0)} / {prof.get('losing_trades', 0)}")}
-              {ui.kv('Lệnh đang mở', str(len(snap.get('open', []))))}
+              <div class="strat">Tổng lãi/lỗ (gồm lệnh đang mở) · {prof.get('profit_all_coin', 0):,.2f} USDT{T(TIPS["profit_all"])}</div>
+              {ui.kv('Số lệnh đã đóng', str(prof.get('closed_trade_count', prof.get('trade_count', 0))), help=TIPS["closed_n"])}
+              {ui.kv('Thắng / Thua', f"{prof.get('winning_trades', 0)} / {prof.get('losing_trades', 0)}", help=TIPS["winloss"])}
+              {ui.kv('Lệnh đang mở', str(len(snap.get('open', []))), help=TIPS["open_n"])}
             </div>""")
         else:
             ui.empty_state("🤖", "Bot chưa chạy",
@@ -421,14 +517,15 @@ def render_performance(snap: dict | None, bt: dict | None) -> None:
         def pcolor(v: float) -> str:
             return "up" if v > 0 else "down"
 
-        cells = ['<div class="h">Chiến lược</div><div class="h n">Lợi nhuận</div>'
-                 '<div class="h n">Sụt vốn</div><div class="h n hide-sm">Lệnh</div>']
+        cells = [f'<div class="h">Chiến lược</div><div class="h n">Lợi nhuận{T(TIPS["bt_profit"])}</div>'
+                 f'<div class="h n">Sụt vốn{T(TIPS["dd"])}</div>'
+                 f'<div class="h n hide-sm">Lệnh{T(TIPS["trades"], right=True)}</div>']
         for r in rows:
             cells.append(f'<div class="name">{names.get(r["name"], ui.esc(r["name"]))}</div>'
                          f'<div class="n" style="color:var(--{pcolor(r["profit"])})">{ui.fmt_pct(r["profit"])}</div>'
                          f'<div class="n">{r["dd"]:.1f}%</div><div class="n hide-sm">{r["trades"]}</div>')
         if bt["market"] is not None:
-            cells.append(f'<div class="name">Mua &amp; giữ <small>thị trường</small></div>'
+            cells.append(f'<div class="name">Mua &amp; giữ <small>thị trường</small>{T(TIPS["hold"])}</div>'
                          f'<div class="n" style="color:var(--{pcolor(bt["market"])})">{ui.fmt_pct(bt["market"])}</div>'
                          f'<div class="n">—</div><div class="n hide-sm">—</div>')
         period = f"{str(bt['start'])[:10]} → {str(bt['end'])[:10]}" if bt["start"] else ""
@@ -530,7 +627,7 @@ STRATEGY_LIBRARY = [
      "Thị trường hoảng loạn (Z &lt; −2, RSI &lt; 30): mua 1 phần; giảm thêm 4% / 8% thì mua thêm 1 / 1,5 phần.",
      "Chốt khi lời 4% trên giá vốn. Cắt lỗ −12% trên giá vốn; tổng tiền 1 coin giới hạn theo % rủi ro.",
      "./run.sh dryrun-dca"),
-    ("QuantHybridFuturesStrategy", "⚡ Hybrid Futures — Long &amp; Short", "Futures · x2–x5",
+    ("QuantHybridFuturesStrategy", "⚡ Hybrid Futures — Long &amp; Short", "Futures · tối đa x2",
      "Như Hybrid nhưng thêm lệnh Short khi quá mua / xu hướng giảm.",
      "Đòn bẩy nhân cả lời lẫn lỗ. Chỉ dành cho hồ sơ Cân bằng / Mạo hiểm.", "./run.sh dryrun-futures"),
     ("QuantZScoreStrategy", "📐 Z-Score gốc", "Spot · Long · tham chiếu",
@@ -551,11 +648,16 @@ def render_advisor() -> None:
     with cp:
         pkey = st.segmented_control("Hồ sơ rủi ro của bạn", list(advisor.PROFILES),
                                     format_func=lambda k: advisor.PROFILES[k]["label"],
-                                    default="can_bang", key="profile") or "can_bang"
+                                    default="can_bang", key="profile",
+                                    help="Thận trọng: rủi ro 0,75%/lệnh, chỉ Spot, ≥ 50% tiền mặt. Cân bằng: 1,5%/lệnh, "
+                                         "Futures ≤ x2, ≥ 30% tiền mặt. Mạo hiểm: 2,5%/lệnh, Futures ≤ x3, ≥ 10% tiền "
+                                         "mặt. Ảnh hưởng tới kế hoạch lệnh và phân bổ vốn bên dưới.") or "can_bang"
     prof = advisor.PROFILES[pkey]
     with cb:
         if st.button(f"Áp dụng rủi ro {prof['risk_pct']}%/lệnh cho bot", width="stretch",
-                     disabled=abs(prof["risk_pct"] - risk_pct) < 1e-9):
+                     disabled=abs(prof["risk_pct"] - risk_pct) < 1e-9,
+                     help="Lưu % rủi ro của hồ sơ này — cả 4 bot dùng cho lệnh tiếp theo, không cần khởi động "
+                          "lại. Mờ đi nghĩa là bot đang dùng đúng mức này."):
             settings.save_user_settings(capital, prof["risk_pct"])
             st.toast(f"Đã lưu: bot dùng rủi ro {prof['risk_pct']}%/lệnh cho lệnh tiếp theo.", icon="✅")
             st.rerun()
@@ -584,7 +686,7 @@ def render_advisor() -> None:
                  "🔴 Thị trường chung đang GIẢM (BTC dưới SMA200 ngày) → các bot Spot <b>đứng ngoài</b>, "
                  "không mở lệnh Long mới; bot Futures chỉ được Short.")
         H(f"""<div class="zone" style="margin-top:14px;font-weight:500;color:var(--text)">
-          <b>Bộ lọc thị trường {'(đang BẬT)' if on else '(đang TẮT)'}:</b> {state}<br>
+          <b>Bộ lọc thị trường {'(đang BẬT)' if on else '(đang TẮT)'}</b>{T(TIPS["mkt"], down=True)}<b>:</b> {state}<br>
           <span style="color:var(--text2)">BTC đóng cửa ngày {mr['date']:%d/%m}: {ui.fmt_px(mr['close'])} ·
           SMA200 ngày: {ui.fmt_px(mr['sma'])} · cách {mr['gap']:+.1f}%</span></div>""")
 
@@ -594,17 +696,17 @@ def render_advisor() -> None:
     counts = {k: sum(a.regime == k for a in items) for k in ("range", "up", "down", "unclear")}
     best = max(items, key=lambda a: a.score)
     H(f"""<div class="mood" style="margin-top:14px">
-      <div class="card"><div class="strat" style="margin:0">Nhiệt kế thị trường</div>
+      <div class="card"><div class="strat" style="margin:0">Nhiệt kế thị trường{T(TIPS["mood"], down=True)}</div>
         <div class="score {ui.trend_cls(avg)}">{avg:+.0f} <small>/ 100</small></div>
         {ui.dbar(avg, 100)}{ui.badge(label, kind)}</div>
-      <div class="card"><div class="strat" style="margin:0">Chế độ thị trường</div>
+      <div class="card"><div class="strat" style="margin:0">Chế độ thị trường{T(TIPS["regimes"], down=True)}</div>
         {ui.kv('Đi ngang', str(counts['range']))}{ui.kv('Xu hướng tăng', str(counts['up']), 'up')}
         {ui.kv('Xu hướng giảm', str(counts['down']), 'down')}{ui.kv('Chưa rõ', str(counts['unclear']))}</div>
-      <div class="card"><div class="strat" style="margin:0">Điểm cao nhất</div>
+      <div class="card"><div class="strat" style="margin:0">Điểm cao nhất{T(TIPS["best"], down=True)}</div>
         <div class="sym" style="margin:6px 0">{ui.coin_icon(best.pair)}{ui.esc(best.pair)}</div>
         <div class="score {ui.trend_cls(best.score)}">{best.score:+.0f}</div>
         <div class="strat" style="margin:6px 0 0">{ui.esc(best.stance)}</div></div>
-      <div class="card"><div class="strat" style="margin:0">Tin tức</div>
+      <div class="card"><div class="strat" style="margin:0">Tin tức{T(TIPS["news"], down=True, right=True)}</div>
         <div class="score {ui.trend_cls(news_score)}">{news_score:+d}</div>
         <div class="strat" style="margin:8px 0 0">{ui.esc(market_context.label_for(news_score))}</div>
         <div class="evidence">Bot chặn lệnh Long khi ≤ −4</div></div>
@@ -616,30 +718,30 @@ def render_advisor() -> None:
                "Xanh = ủng hộ mua, đỏ = bất lợi.")
     cards = []
     for a in sorted(items, key=lambda x: -x.score):
-        frows = "".join(f"<span>{advisor.FACTOR_LABELS[k]}</span>{ui.dbar(v, 2)}<b>{v:+.1f}</b>"
+        frows = "".join(f"<span>{advisor.FACTOR_LABELS[k]}{T(TIPS['f_' + k])}</span>{ui.dbar(v, 2)}<b>{v:+.1f}</b>"
                         for k, v in a.factors.items())
         reasons = "".join(f"<li>{ui.esc(x)}</li>" for x in a.reasons)
-        zone = f'<div class="zone">🎯 {ui.esc(a.zone)}</div>' if a.zone else ""
+        zone = f'<div class="zone">🎯 {ui.esc(a.zone)}{T(TIPS["zone"])}</div>' if a.zone else ""
         plan = ""
         if a.plan is not None:
             p = a.plan
-            plan = (ui.kv("Giá vào tham khảo", ui.fmt_px(p.entry))
-                    + ui.kv("Cắt lỗ", ui.fmt_px(p.stop_loss), "down")
-                    + ui.kv("Chốt lời", ui.fmt_px(p.take_profit), "up")
-                    + ui.kv("Khối lượng", f"${p.position_usd:,.0f}")
-                    + ui.kv("Mất tối đa nếu sai", f"-${p.risk_usd:,.2f}", "down")
-                    + ui.kv("Lời / lỗ", f"1 : {p.rr_ratio:.1f}"))
+            plan = (ui.kv("Giá vào tham khảo", ui.fmt_px(p.entry), help=TIPS["entry"])
+                    + ui.kv("Cắt lỗ", ui.fmt_px(p.stop_loss), "down", help=TIPS["sl"])
+                    + ui.kv("Chốt lời", ui.fmt_px(p.take_profit), "up", help=TIPS["tp"])
+                    + ui.kv("Khối lượng", f"${p.position_usd:,.0f}", help=TIPS["size"])
+                    + ui.kv("Mất tối đa nếu sai", f"-${p.risk_usd:,.2f}", "down", help=TIPS["risk_usd"])
+                    + ui.kv("Lời / lỗ", f"1 : {p.rr_ratio:.1f}", help=TIPS["rr"]))
         strat = advisor.STRATEGY_OF.get(a.playbook)
         ev = evidence.get(strat) if strat else None
         ev_html = (f'<div class="evidence">Kiểm chứng: bot <b>{strat}</b> backtest '
                    f'<b style="color:var(--{"up" if ev["profit"] > 0 else "down"})">{ev["profit"]:+.2f}%</b>, '
-                   f'sụt vốn {ev["dd"]:.1f}%, {ev["trades"]} lệnh (thị trường {ev["market"]:+.1f}%)</div>'
+                   f'sụt vốn {ev["dd"]:.1f}%, {ev["trades"]} lệnh (thị trường {ev["market"]:+.1f}%){T(TIPS["evidence"])}</div>'
                    if ev else "")
         m = a.metrics
         cards.append(f"""<div class="card {'glow-long' if a.kind == 'long' else 'glow-short' if a.kind == 'short' else ''}">
           <div class="card-head"><div class="sym">{ui.coin_icon(a.pair)}<div>{ui.esc(a.pair)}
-            <small>{ui.esc(a.regime_label)} · RSI {m['rsi']:.0f} · 7 ngày {m['roc_7d']:+.1f}%</small></div></div>
-            <div style="text-align:right"><div class="score {ui.trend_cls(a.score)}">{a.score:+.0f}</div></div></div>
+            <small>{ui.esc(a.regime_label)} · RSI {m['rsi']:.0f} · 7 ngày {m['roc_7d']:+.1f}%{T(RSI_TIP)}</small></div></div>
+            <div style="text-align:right"><div class="score {ui.trend_cls(a.score)}">{a.score:+.0f}{T(TIPS["score"], right=True)}</div></div></div>
           {ui.dbar(a.score, 100)}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px">{ui.badge(a.stance, a.kind)}
             {ui.badge(a.regime_label, 'info')}</div>
@@ -669,9 +771,13 @@ def render_advisor() -> None:
         ui.chart(fig, key="alloc")
     with cb2:
         st.dataframe(alloc, hide_index=True, width="stretch", column_config={
-            "Tỷ trọng": st.column_config.ProgressColumn(format="percent", min_value=0, max_value=1),
-            "USDT": st.column_config.NumberColumn(format="$%.0f"),
-            "Điểm": st.column_config.NumberColumn(format="%+.0f")})
+            "Tài sản": st.column_config.TextColumn(help="Coin được chọn (điểm > 0, không ở xu hướng giảm) + tiền mặt."),
+            "Tỷ trọng": st.column_config.ProgressColumn(
+                format="percent", min_value=0, max_value=1,
+                help="% vốn đề xuất. Tỷ lệ với điểm ÷ biến động năm, có trần mỗi coin theo hồ sơ."),
+            "USDT": st.column_config.NumberColumn(format="$%.0f", help="Số tiền tương ứng trên vốn khai ở tab 🛡️."),
+            "Điểm": st.column_config.NumberColumn(format="%+.0f", help=TIPS["score"]),
+            "Lý do": st.column_config.TextColumn(help="Gợi ý hành động cho coin này (xem thẻ coin ở trên).")})
         rets = {p: d.set_index("date")["log_return"].tail(720) for p, (d, _) in frames.items() if not d.empty}
         corr_pairs = advisor.correlated_pairs(rets)
         if corr_pairs:
@@ -706,9 +812,10 @@ def render_advisor() -> None:
     lib = []
     for key, title, tag, when, risk, cmd in STRATEGY_LIBRARY:
         ev = evidence.get(key)
-        res = (ui.kv("Lợi nhuận backtest", ui.fmt_pct(ev["profit"]), "up" if ev["profit"] > 0 else "down")
-               + ui.kv("Sụt vốn tối đa", f"{ev['dd']:.1f}%") + ui.kv("Số lệnh · tỷ lệ thắng",
-                                                                       f"{ev['trades']} · {ev['win']:.0f}%")
+        res = (ui.kv("Lợi nhuận backtest", ui.fmt_pct(ev["profit"]), "up" if ev["profit"] > 0 else "down",
+                     help=TIPS["bt_profit"])
+               + ui.kv("Sụt vốn tối đa", f"{ev['dd']:.1f}%", help=TIPS["dd"])
+               + ui.kv("Số lệnh · tỷ lệ thắng", f"{ev['trades']} · {ev['win']:.0f}%", help=TIPS["winrate"])
                if ev else ui.kv("Backtest", "chưa có — chạy ./run.sh backtest-all"))
         lib.append(f"""<div class="card"><h4>{title}</h4>{ui.badge(tag, 'info')}
           <div class="when"><b>Khi nào dùng:</b> {when}<br><b>Quản trị rủi ro:</b> {risk}</div>
@@ -785,16 +892,18 @@ with t_an:
       dữ liệu đã tải (cập nhật ở thanh bên)</span></div>""")
     kurt = df["log_return"].kurtosis()
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Giá", ui.fmt_px(float(last["close"])))
+    c1.metric("Giá", ui.fmt_px(float(last["close"])), help=TIPS["price"])
     c2.metric("Z-Score", f"{last['z_score']:+.2f}σ",
               "Quá mua" if last["z_score"] > 2 else "Quá bán" if last["z_score"] < -2 else "Trung tính",
-              delta_color="off")
+              delta_color="off", help=TIPS["z"])
     c3.metric("ADF 200 nến", f"{last['adf_p']:.3f}",
               "Đi ngang" if last["adf_p"] < ADF_THRESHOLD else "Có xu hướng", delta_color="off",
-              help="ADF trượt 200 nến gần nhất (giống bot). < 0.20 = đi ngang.")
-    c4.metric("EMA20 / EMA50", f"{last['ema_gap_pct']:+.2f}%", delta_color="off")
+              help=TIPS["adf"])
+    c4.metric("EMA20 / EMA50", f"{last['ema_gap_pct']:+.2f}%",
+              "Tăng rõ" if last["ema_gap_pct"] > TREND_GAP else "Giảm rõ" if last["ema_gap_pct"] < -TREND_GAP
+              else "Chưa rõ", delta_color="off", help=TIPS["ema_gap"])
     c5.metric("Kurtosis", f"{kurt:.2f}", "Đuôi béo — dễ có cú sốc" if kurt > 3 else "Ổn định",
-              delta_color="off")
+              delta_color="off", help=TIPS["kurt"])
 
     spans = {"7 ngày": 7, "30 ngày": 30, "90 ngày": 90, "Tất cả": None}
     span = st.segmented_control("Khoảng hiển thị", list(spans), default="30 ngày", key="span",
@@ -832,16 +941,26 @@ with t_scr:
     st.dataframe(
         pd.DataFrame(rows).sort_values("Z-Score"), hide_index=True, width="stretch",
         column_config={
-            "Giá": st.column_config.NumberColumn(format="$%.4f"),
-            "Mục tiêu (TB)": st.column_config.NumberColumn(format="$%.4f"),
-            "Diễn biến": st.column_config.LineChartColumn("Diễn biến (60 nến)", width="small"),
-            "Z-Score": st.column_config.NumberColumn(format="%+.2f σ"),
-            "EMA gap %": st.column_config.NumberColumn(format="%+.2f%%"),
-            "Khuyến nghị": st.column_config.TextColumn(width="large"),
+            "Tài sản": st.column_config.TextColumn(help="Cặp coin đã tải về máy."),
+            "Khung": st.column_config.TextColumn(help="Độ dài mỗi nến: 15m, 1h, 4h, 1d."),
+            "Giá": st.column_config.NumberColumn(format="$%.4f", help="Giá đóng cửa của nến cuối đã tải."),
+            "Mục tiêu (TB)": st.column_config.NumberColumn(
+                format="$%.4f", help="Giá trung bình — nơi Mean Reversion kỳ vọng giá quay về (mục tiêu chốt lời)."),
+            "Diễn biến": st.column_config.LineChartColumn("Diễn biến (60 nến)", width="small",
+                                                          help="Biểu đồ giá 60 nến gần nhất."),
+            "Z-Score": st.column_config.NumberColumn(format="%+.2f σ", help=TIPS["z"]),
+            "ADF 200": st.column_config.NumberColumn(help=TIPS["adf"]),
+            "ADF toàn bộ": st.column_config.NumberColumn(help=TIPS["adf_all"]),
+            "EMA gap %": st.column_config.NumberColumn(format="%+.2f%%", help=TIPS["ema_gap"]),
+            "Khuyến nghị": st.column_config.TextColumn(
+                width="large", help="🟢 MUA / 🔴 BÁN-SHORT: Mean Reversion (đi ngang + Z vượt ±2). 🚀 / 🔻: xu hướng "
+                                    "EMA. ⚪: chờ hoặc đứng ngoài. Cùng logic bot Hybrid."),
         })
 
     ui.section(f"🔗 Ma trận tương quan · khung {ui.esc(tf)}",
-               "Tương quan &gt; 0.80 ⇒ chỉ nên giữ 1 trong 2 đồng để tránh nhân đôi rủi ro.")
+               "Tương quan &gt; 0.80 ⇒ chỉ nên giữ 1 trong 2 đồng để tránh nhân đôi rủi ro."
+               + T("Mức độ 2 coin lên xuống cùng nhau, từ −1 đến +1. Gần +1 (đỏ): đi cùng nhau · gần 0 (xám): "
+                   "độc lập, tốt cho đa dạng hoá · âm (xanh): đi ngược nhau. Đường chéo luôn = 1."))
     if len(returns) >= 2:
         corr = pd.DataFrame(returns).corr()
         fig = go.Figure(go.Heatmap(
@@ -883,28 +1002,49 @@ with t_risk:
                "Bot Freqtrade dùng chung mức rủi ro này.")
     ci, cr = st.columns([1, 2], gap="large")
     with ci:
-        cap_in = st.number_input("Tổng vốn (USDT)", min_value=10.0, value=capital, step=100.0)
-        risk_in = st.slider("Rủi ro tối đa mỗi lệnh (%)", 0.5, 5.0, float(risk_pct), 0.5)
+        cap_in = st.number_input("Tổng vốn (USDT)", min_value=10.0, value=capital, step=100.0,
+                                 help="Vốn dùng để TÍNH TOÁN trên dashboard (quy mô lệnh, số tiền mất nếu sai). "
+                                      "Bot tự tính theo số dư ví của nó — nên đặt bằng vốn của bot để số liệu khớp.")
+        bot_cap, bot_cap_src = bot_capital()
+        if bot_cap and abs(bot_cap - cap_in) > max(1.0, 0.02 * bot_cap):
+            st.warning(f"Vốn ở đây (${cap_in:,.0f}) khác vốn bot (${bot_cap:,.0f} — {bot_cap_src}). "
+                       "Các con số bên phải sẽ lệch so với lệnh bot thực sự vào.", icon="⚠️")
+            if st.button(f"Dùng vốn của bot (${bot_cap:,.0f})", width="stretch"):
+                settings.save_user_settings(round(bot_cap, 2), risk_pct)
+                st.rerun()
+        risk_in = st.slider("Rủi ro tối đa mỗi lệnh (%)", 0.5, 5.0, float(risk_pct), 0.5,
+                            help="% vốn chấp nhận mất nếu một lệnh chạm cắt lỗ. Lưu ngay — cả 4 bot dùng cho lệnh "
+                                 "tiếp theo. Người mới nên 0,5–1,5%.")
         if (cap_in, risk_in) != (capital, risk_pct):
             settings.save_user_settings(cap_in, risk_in)
             st.toast("Đã lưu — bot Freqtrade sẽ dùng mức rủi ro này cho lệnh tiếp theo.", icon="✅")
-        direction = st.segmented_control("Hướng", ["🟢 Long", "🔴 Short"], default="🟢 Long") or "🟢 Long"
+        direction = st.segmented_control("Hướng", ["🟢 Long", "🔴 Short"], default="🟢 Long",
+                                         help="Long = mua, lời khi giá lên. Short = bán khống, lời khi giá xuống "
+                                              "(chỉ làm được trên Futures).") or "🟢 Long"
         sl_mult = st.slider("Cắt lỗ cách bao nhiêu σ", 0.5, 3.5, 2.0, 0.5,
-                            help="Bot QuantHybridStrategy mặc định 2.0σ.")
+                            help="Khoảng cách từ giá vào tới cắt lỗ, tính bằng độ lệch chuẩn σ. Xa hơn = ít bị "
+                                 "quét nhưng lệnh nhỏ hơn. Bot Hybrid mặc định 2σ.")
     with cr:
         is_long = "Long" in direction
         plan = plan_position(cap_in, risk_in, float(last["close"]), float(last["rolling_std"]),
                              float(last["rolling_mean"]), is_long=is_long, sl_std_mult=sl_mult)
         a, b, c = st.columns(3)
-        a.metric("Rủi ro tối đa", f"-${plan.risk_usd:,.2f}", f"{risk_in}% vốn", delta_color="off")
-        b.metric("Quy mô lệnh", f"${plan.position_usd:,.0f}", f"{plan.coin_amount:.4f} coin", delta_color="off")
-        c.metric("Đòn bẩy cần", f"{plan.leverage_needed}x", "Cẩn thận nếu > 5x", delta_color="off")
+        a.metric("Rủi ro tối đa", f"-${plan.risk_usd:,.2f}", f"{risk_in}% vốn", delta_color="off",
+                 help=TIPS["risk_usd"])
+        b.metric("Quy mô lệnh", f"${plan.position_usd:,.0f}", f"{plan.coin_amount:.4f} coin", delta_color="off",
+                 help=TIPS["size"])
+        c.metric("Đòn bẩy cần", f"{plan.leverage_needed}x", "Cẩn thận nếu > 5x", delta_color="off",
+                 help="Quy mô lệnh ÷ vốn. 1x: Spot làm được. > 1x: cần Futures hoặc vào lệnh nhỏ hơn. "
+                      "> 5x: rất nguy hiểm, dễ bị thanh lý.")
         a, b, c = st.columns(3)
         a.metric("Cắt lỗ", ui.fmt_px(plan.stop_loss), f"Cách {plan.stop_distance_pct * 100:.2f}%",
-                 delta_color="off")
-        b.metric("Chốt lời", ui.fmt_px(plan.take_profit), f"R:R = 1:{plan.rr_ratio:.1f}", delta_color="off")
+                 delta_color="off", help=TIPS["sl"])
+        b.metric("Chốt lời", ui.fmt_px(plan.take_profit), f"R:R = 1:{plan.rr_ratio:.1f}", delta_color="off",
+                 help=TIPS["tp"] + " " + TIPS["rr"])
         var95, cvar95 = value_at_risk(df["return"])
-        c.metric("VaR 95% / nến", f"{var95 * 100:.2f}%", f"CVaR {cvar95 * 100:.2f}%", delta_color="off")
+        c.metric("VaR 95% / nến", f"{var95 * 100:.2f}%", f"CVaR {cvar95 * 100:.2f}%", delta_color="off",
+                 help="VaR 95%: trong 95% số nến, mức lỗ KHÔNG vượt quá con số này. CVaR: trung bình lỗ trong 5% "
+                      "số nến tệ nhất — 'ngày xấu' thật sự trông như thế nào.")
     ui.chart(plan_figure(df, plan, is_long), key="plan")
     st.caption("Half-Kelly tính từ lệnh backtest thật nằm ở tab 📊 Backtest.")
 
@@ -922,9 +1062,13 @@ with t_news:
                    "Tin mới nhất từ CoinDesk và CoinTelegraph, chấm điểm tăng/giảm theo từ khoá.",
                    aside="Bot chặn lệnh Long khi điểm tổng ≤ −4")
         m1, m2, m3 = st.columns(3)
-        m1.metric("Tin tích cực", sum(n["score"] > 0 for n in news))
-        m2.metric("Tin tiêu cực", sum(n["score"] < 0 for n in news))
-        m3.metric("Điểm tổng", f"{score:+d}", market_context.label_for(score), delta_color="off")
+        m1.metric("Tin tích cực", sum(n["score"] > 0 for n in news),
+                  help="Số tin có nhiều từ khoá tích cực hơn tiêu cực (surge, rally, ETF, approve, record…).")
+        m2.metric("Tin tiêu cực", sum(n["score"] < 0 for n in news),
+                  help="Số tin có nhiều từ khoá tiêu cực hơn (crash, hack, ban, SEC, lawsuit, dump, fear…).")
+        m3.metric("Điểm tổng", f"{score:+d}", market_context.label_for(score), delta_color="off",
+                  help="Số tin tích cực − số tin tiêu cực. Điểm ≤ −4 thì bot ngừng mở lệnh Long mới. Chấm theo từ "
+                       "khoá nên chỉ là nhiệt kế thô.")
         cards = []
         for n in news:
             kind = "long" if n["score"] > 0 else "short" if n["score"] < 0 else "wait"
@@ -1035,13 +1179,35 @@ with t_bot:
                    f"cập nhật {datetime.now():%H:%M:%S}")
         a, b, c, d = st.columns(4)
         a.metric("Lợi nhuận đã chốt", f"{prof.get('profit_closed_coin', 0):,.2f} USDT",
-                 f"{prof.get('profit_closed_percent', 0):.2f}%")
+                 f"{prof.get('profit_closed_percent', 0):.2f}%", help=TIPS["profit_closed"])
         b.metric("Tổng (gồm lệnh mở)", f"{prof.get('profit_all_coin', 0):,.2f} USDT",
-                 f"{prof.get('profit_all_percent', 0):.2f}%")
+                 f"{prof.get('profit_all_percent', 0):.2f}%", help=TIPS["profit_all"])
         c.metric("Số lệnh", prof.get("trade_count", 0), f"Thắng {prof.get('winning_trades', 0)} / "
-                                                         f"Thua {prof.get('losing_trades', 0)}", delta_color="off")
-        d.metric("Lệnh đang mở", len(open_trades))
-        pct_col = {"profit_pct": st.column_config.NumberColumn("Lãi/lỗ %", format="%+.2f%%")}
+                                                         f"Thua {prof.get('losing_trades', 0)}", delta_color="off",
+                 help="Tổng số lệnh (cả đang mở), kèm số lệnh đã đóng có lãi / bị lỗ.")
+        d.metric("Lệnh đang mở", len(open_trades), help=TIPS["open_n"])
+        pct_col = {
+            "profit_pct": st.column_config.NumberColumn("Lãi/lỗ %", format="%+.2f%%",
+                                                        help="Lãi/lỗ % của lệnh (lệnh mở: tạm tính theo giá hiện tại)."),
+            "pair": st.column_config.TextColumn(help="Cặp coin."),
+            "is_short": st.column_config.CheckboxColumn(help="Đánh dấu = lệnh Short (chỉ có ở bot Futures)."),
+            "enter_tag": st.column_config.TextColumn(
+                help="Lý do vào lệnh. mean_rev: Z vượt ±2 rồi quay đầu · trend: xu hướng EMA · breakout: phá đỉnh "
+                     "48h · dca: Smart DCA. Đuôi _short = lệnh Short."),
+            "exit_reason": st.column_config.TextColumn(
+                help="Lý do thoát. z_revert: giá về trung bình · mr_timeout: giữ quá lâu · ema_cross: hết xu hướng · "
+                     "channel_exit: thủng đáy 24h · dca_take_profit: lời 4% · stop_loss / trailing_stop_loss: chạm "
+                     "cắt lỗ · roi: đạt mục tiêu theo thời gian · force_exit: đóng tay."),
+            "open_date": st.column_config.TextColumn(help="Giờ vào lệnh (UTC — giờ VN = UTC + 7)."),
+            "close_date": st.column_config.TextColumn(help="Giờ thoát lệnh (UTC — giờ VN = UTC + 7)."),
+            "open_rate": st.column_config.NumberColumn(help="Giá vào lệnh (giá vốn trung bình nếu có mua thêm)."),
+            "current_rate": st.column_config.NumberColumn(help="Giá hiện tại."),
+            "stake_amount": st.column_config.NumberColumn(help="Số USDT đã bỏ vào lệnh."),
+            "leverage": st.column_config.NumberColumn(help="Đòn bẩy. Spot luôn = 1."),
+            "stop_loss_abs": st.column_config.NumberColumn(
+                help="Giá cắt lỗ hiện tại — có thể được kéo lên khi lệnh đang lời."),
+            "profit_abs": st.column_config.NumberColumn(help="Lãi/lỗ tính bằng USDT."),
+        }
         if open_trades:
             ui.section("Lệnh đang mở")
             cols = [c for c in ["pair", "is_short", "enter_tag", "open_date", "open_rate", "current_rate",
@@ -1105,11 +1271,15 @@ def render_walk_forward() -> None:
         kind = "long" if sm["profitable"] >= sm["n"] * 0.75 else "wait" if sm["profitable"] >= sm["n"] / 2 else "short"
         verdict = {"long": "Ổn định", "wait": "Chưa ổn định", "short": "Không ổn định"}[kind]
         cards.append(f"""<div class="card"><div class="card-head"><b style="color:var(--text)">{SHORT_NAMES.get(n, n)}</b>
-          {ui.badge(verdict, kind)}</div>
-          {ui.kv('Giai đoạn có lãi', f"{sm['profitable']} / {sm['n']}", 'up' if sm['profitable'] > sm['n'] / 2 else 'down')}
-          {ui.kv('Thắng thị trường', f"{sm['beat_market']} / {sm['n']}")}
-          {ui.kv('Tổng lãi/lỗ các giai đoạn', ui.fmt_pct(sm['sum_profit_pct']), 'up' if sm['sum_profit_pct'] > 0 else 'down')}
-          {ui.kv('Sụt vốn tệ nhất', f"{sm['worst_dd_pct']:.1f}%")}</div>""")
+          <span>{ui.badge(verdict, kind)}{T("Ổn định: có lãi ở ≥ 75% số giai đoạn · Chưa ổn định: ≥ 50% · "
+                                            "Không ổn định: < 50%.", right=True)}</span></div>
+          {ui.kv('Giai đoạn có lãi', f"{sm['profitable']} / {sm['n']}", 'up' if sm['profitable'] > sm['n'] / 2 else 'down',
+                 help="Số giai đoạn 6 tháng có lãi / tổng số giai đoạn. Ổn định = ≥ 75%.")}
+          {ui.kv('Thắng thị trường', f"{sm['beat_market']} / {sm['n']}",
+                 help="Số giai đoạn lời nhiều hơn (hoặc lỗ ít hơn) so với mua rồi giữ.")}
+          {ui.kv('Tổng lãi/lỗ các giai đoạn', ui.fmt_pct(sm['sum_profit_pct']), 'up' if sm['sum_profit_pct'] > 0 else 'down',
+                 help="Cộng % lãi/lỗ của các giai đoạn (mỗi giai đoạn bắt đầu lại từ vốn ban đầu).")}
+          {ui.kv('Sụt vốn tệ nhất', f"{sm['worst_dd_pct']:.1f}%", help=TIPS["dd"])}</div>""")
     H(f'<div class="grid" style="margin-top:12px">{"".join(cards)}</div>')
     st.caption(f"Cập nhật: {wf['generated'].replace('T', ' ')} · Ô xanh = có lãi, ô đỏ = lỗ trong giai đoạn đó. "
                "Ổn định = có lãi ở ≥ 75% số giai đoạn.")
@@ -1140,9 +1310,14 @@ with t_bt:
                 "max_drawdown_account": "Sụt vốn tối đa", "duration_avg": "Giữ lệnh TB"})
             show["Sụt vốn tối đa"] = show["Sụt vốn tối đa"] * 100
             st.dataframe(show, hide_index=True, width="stretch", column_config={
-                "Lợi nhuận %": st.column_config.NumberColumn(format="%+.2f%%"),
-                "Lợi nhuận USDT": st.column_config.NumberColumn(format="%+.2f"),
-                "Sụt vốn tối đa": st.column_config.NumberColumn(format="%.2f%%")})
+                "Chiến lược": st.column_config.TextColumn(help="Tên chiến lược Freqtrade."),
+                "Số lệnh": st.column_config.NumberColumn(help=TIPS["trades"]),
+                "Lợi nhuận %": st.column_config.NumberColumn(format="%+.2f%%", help=TIPS["bt_profit"]),
+                "Lợi nhuận USDT": st.column_config.NumberColumn(format="%+.2f", help="Lợi nhuận tính bằng USDT."),
+                "Thắng": st.column_config.NumberColumn(help="Số lệnh có lãi."),
+                "Thua": st.column_config.NumberColumn(help="Số lệnh bị lỗ."),
+                "Sụt vốn tối đa": st.column_config.NumberColumn(format="%.2f%%", help=TIPS["dd"]),
+                "Giữ lệnh TB": st.column_config.TextColumn(help="Thời gian giữ một lệnh trung bình.")})
 
         fig = go.Figure()
         start_bal = None
@@ -1166,7 +1341,7 @@ with t_bt:
                           annotation_text="Vốn ban đầu", annotation_font=dict(color=ui.MUTED, size=11))
         fig.update_layout(title="Đường cong vốn (USDT)", height=460, hovermode="x unified")
         ui.chart(fig, key="equity")
-        st.caption(f"Thị trường thay đổi trong giai đoạn: "
+        st.caption(f"Half-Kelly: {TIPS['kelly']} · Thị trường thay đổi trong giai đoạn: "
                    f"{next(iter(stats['strategy'].values()))['market_change'] * 100:+.2f}%")
         for strat, s, trades in details:
             with st.expander(f"Chi tiết {strat} — {len(trades)} lệnh · Half-Kelly = "

@@ -293,7 +293,8 @@ class QuantHybridStrategy(IStrategy):
 class QuantHybridFuturesStrategy(QuantHybridStrategy):
     """
     Phiên bản Futures: thêm lệnh Short đối xứng + đòn bẩy theo độ mạnh tín hiệu
-    (giống 4_alert_bot.py: |Z|>=3 -> x5, mean reversion -> x2, trend -> x3).
+    (giống 4_alert_bot.py: |Z|>=3 -> x5, mean reversion -> x2, trend -> x3),
+    nhưng không vượt "quant.max_leverage" trong config (mặc định x2).
     Dùng với user_data/config.futures.json
     """
 
@@ -336,4 +337,8 @@ class QuantHybridFuturesStrategy(QuantHybridStrategy):
         else:
             c = self._last_candle(pair)
             lev = 5.0 if c is not None and abs(c["z_score"]) >= 3.0 else 2.0
-        return min(lev, self.max_leverage, max_leverage)
+        # Trần chung trong config ("quant.max_leverage", mặc định x2 = hồ sơ Cân bằng ở tab 🧭).
+        # Khối lượng lệnh tính theo % rủi ro nên lỗ khi chạm cắt lỗ KHÔNG đổi; đòn bẩy thấp hơn chỉ
+        # dùng nhiều ký quỹ hơn và đẩy giá thanh lý ra xa hơn (an toàn hơn khi trượt giá / mất kết nối).
+        cap = float(self.config.get("quant", {}).get("max_leverage", 2.0))
+        return max(1.0, min(lev, cap, self.max_leverage, max_leverage))

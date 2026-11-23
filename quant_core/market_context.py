@@ -35,10 +35,23 @@ def trading_session(now: datetime | None = None) -> str:
     return "🇺🇸 Phiên Mỹ (Chạy theo xu hướng)"
 
 
+def _word_re(words: list[str]):
+    import re
+
+    # Khớp TỪ NGUYÊN VẸN (+ đuôi số nhiều/quá khứ/tiếp diễn): "drops", "surged", "rallying" vẫn tính,
+    # nhưng "security" không còn bị đếm là "sec", "below" không còn là "low", "bank" không còn là "ban".
+    alt = "|".join(sorted(map(re.escape, words), key=len, reverse=True))
+    return re.compile(rf"\b(?:{alt})(?:s|es|d|ed|ing)?\b")
+
+
+_BULL_RE = _word_re(BULLISH_WORDS)
+_BEAR_RE = _word_re(BEARISH_WORDS)
+
+
 def score_text(text: str) -> int:
-    """>0 tích cực, <0 tiêu cực, 0 trung lập."""
+    """>0 tích cực, <0 tiêu cực, 0 trung lập (đếm số từ khoá tăng − số từ khoá giảm)."""
     t = text.lower()
-    return sum(w in t for w in BULLISH_WORDS) - sum(w in t for w in BEARISH_WORDS)
+    return len(_BULL_RE.findall(t)) - len(_BEAR_RE.findall(t))
 
 
 def label_for(score: int) -> str:

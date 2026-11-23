@@ -1,6 +1,6 @@
 # QuantFreqtrade — QuantTradingSystem × Freqtrade
 
-> 📘 **Lệnh hay dùng (bản ngắn):** [LENH.md](LENH.md) · **Hướng dẫn chi tiết có ví dụ:** [HUONG_DAN_CHI_TIET.md](HUONG_DAN_CHI_TIET.md)
+> 📘 **Lệnh hay dùng (bản ngắn):** [LENH.md](LENH.md) · **Hướng dẫn chi tiết có ví dụ:** [HUONG_DAN_CHI_TIET.md](HUONG_DAN_CHI_TIET.md) · **Đọc hiểu dashboard:** [HUONG_DAN_DASHBOARD.md](HUONG_DAN_DASHBOARD.md)
 
 > 🆕 **Mới:** 2 chiến lược `QuantBreakoutStrategy` (mua theo đà) và `QuantSmartDCAStrategy` (tích luỹ từng phần),
 > lệnh `./run.sh backtest-all` so sánh cả 4 chiến lược Spot, và tab **🧭 Tư vấn** trên dashboard
@@ -184,7 +184,8 @@ Khi backtest, bot dùng `"risk_pct": 1.5` cố định để kết quả lặp l
 8. **Bộ lọc tin tức** (chỉ khi chạy dry-run/live): ngừng mở Long khi điểm tin RSS ≤ -4.
 
 `QuantHybridFuturesStrategy` có thêm lệnh **Short** đối xứng và đòn bẩy giống alert bot cũ
-(x5 khi |Z| ≥ 3, x2 cho Mean Reversion, x3 cho Trend).
+(x5 khi |Z| ≥ 3, x2 cho Mean Reversion, x3 cho Trend), **nhưng bị giới hạn bởi `"max_leverage"`
+trong `user_data/config.futures.json` (mặc định x2)**. Backtest 2 năm: x2 lỗ ít hơn x5 (−9,4% so với −13,8%).
 
 ### Kết quả backtest thực tế (25/05 đến 20/11/2026, BTC/ETH/SOL/BNB, khung 1h, vốn 1000 USDT, phí 0.1%)
 

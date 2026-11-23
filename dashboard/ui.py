@@ -110,8 +110,8 @@ code{ font-family: var(--mono); }
     radial-gradient(600px 300px at 0% 0%, rgba(57,135,229,0.20), transparent 70%),
     radial-gradient(500px 300px at 100% 100%, rgba(31,191,117,0.14), transparent 70%),
     linear-gradient(180deg, #131a27, #0f141e);
-  overflow:hidden; margin-bottom: 18px; }
-.hero:after{ content:""; position:absolute; inset:0; pointer-events:none;
+  overflow:visible; margin-bottom: 18px; }  /* visible: để tooltip "?" không bị cắt */
+.hero:after{ content:""; position:absolute; inset:0; pointer-events:none; border-radius: inherit;
   background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
   background-size: 36px 36px; mask-image: linear-gradient(90deg, transparent, #000 35%, #000 65%, transparent); }
@@ -156,6 +156,22 @@ code{ font-family: var(--mono); }
 /* ---------- grid + card ---------- */
 .grid{ display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
 .grid.wide{ grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+/* ---------- tooltip "?" (rê chuột / chạm để xem giải thích) ---------- */
+.tip{ position:relative; display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px;
+  margin-left:5px; border-radius:50%; border:1px solid var(--muted); color:var(--muted); font-family: var(--font);
+  font-size:10px; font-weight:700; line-height:1; cursor:help; vertical-align:middle; text-transform:none;
+  letter-spacing:0; flex-shrink:0; outline:none; }
+.tip:hover, .tip:focus{ color: var(--text); border-color: var(--text2); }
+.tip::after{ content: attr(data-tip); position:absolute; left:-10px; bottom: calc(100% + 8px); z-index: 1000;
+  width:max-content; max-width: min(290px, 72vw); white-space: normal; text-align:left; background:#1c2332; color: var(--text);
+  border:1px solid rgba(255,255,255,0.14); border-radius:10px; padding: 9px 11px; font-size:12.5px; font-weight:500;
+  line-height:1.5; box-shadow: 0 10px 30px rgba(0,0,0,0.45); opacity:0; visibility:hidden; pointer-events:none;
+  transition: opacity .12s; }
+.tip.down::after{ bottom:auto; top: calc(100% + 8px); }
+.tip.right::after{ left:auto; right:-10px; }
+.tip:hover::after, .tip:focus::after{ opacity:1; visibility:visible; }
+.card, .hstat, .pill{ position:relative; }
+.card:hover, .hstat:hover, .pill:hover{ z-index: 30; }
 .card{ background: var(--surface); border:1px solid var(--border); border-radius:18px; padding: 18px;
   transition: border-color .2s, transform .2s; }
 .card:hover{ border-color: rgba(57,135,229,0.38); transform: translateY(-1px); }
@@ -186,8 +202,8 @@ code{ font-family: var(--mono); }
 .why{ color: var(--text); font-size: 14px; line-height: 1.55; margin: 0 0 12px; }
 .kv{ display:flex; justify-content:space-between; gap:10px; font-size:13px; padding: 7px 0;
   border-top: 1px dashed var(--border); }
-.kv span:first-child{ color: var(--text2); }
-.kv span:last-child{ font-family: var(--mono); color: var(--text); font-weight:600; }
+.kv > span:first-child{ display:inline-flex; align-items:center;  color: var(--text2); }
+.kv > span:last-child{ font-family: var(--mono); color: var(--text); font-weight:600; }
 .kv .up{ color: var(--up) !important; } .kv .down{ color: var(--down) !important; }
 .meter{ margin-top: 6px; }
 .meter .bar{ height: 6px; border-radius: 99px; background: rgba(255,255,255,0.07); overflow:hidden; }
@@ -236,7 +252,7 @@ code{ font-family: var(--mono); }
 .dbar:before{ content:""; position:absolute; left:50%; top:-3px; bottom:-3px; width:1px; background: var(--border-strong); }
 .dbar i{ position:absolute; top:0; bottom:0; border-radius:99px; }
 .dbar i.pos{ left:50%; background: var(--up); } .dbar i.neg{ right:50%; background: var(--down); }
-.factors{ display:grid; grid-template-columns: 92px 1fr 34px; gap: 4px 10px; align-items:center;
+.factors{ display:grid; grid-template-columns: 112px 1fr 34px; gap: 4px 10px; align-items:center;
   font-size: 12px; color: var(--text2); margin: 10px 0 12px; }
 .factors .dbar{ height:6px; margin:0; }
 .factors b{ font-family: var(--mono); color: var(--text); font-weight:600; text-align:right; font-size:11.5px; }
@@ -366,8 +382,15 @@ def badge(text: str, kind: str = "wait") -> str:
     return f'<span class="badge {kind}">{esc(text)}</span>'
 
 
-def kv(label: str, value: str, cls: str = "") -> str:
-    return f'<div class="kv"><span>{esc(label)}</span><span class="{cls}">{value}</span></div>'
+def tip(text: str, down: bool = False, right: bool = False) -> str:
+    """Biểu tượng "?" — rê chuột (hoặc chạm trên điện thoại) để hiện giải thích."""
+    cls = "tip" + (" down" if down else "") + (" right" if right else "")
+    return f'<span class="{cls}" tabindex="0" data-tip="{esc(text, quote=True)}">?</span>'
+
+
+def kv(label: str, value: str, cls: str = "", help: str | None = None) -> str:
+    t = tip(help) if help else ""
+    return f'<div class="kv"><span>{esc(label)}{t}</span><span class="{cls}">{value}</span></div>'
 
 
 def meter(frac: float, left: str, right: str) -> str:

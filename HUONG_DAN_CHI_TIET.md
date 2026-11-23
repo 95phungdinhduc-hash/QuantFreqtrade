@@ -53,7 +53,7 @@ Chiến lược của dự án:
 |---|---|---|
 | `QuantZScoreStrategy` | Spot | Bản gốc từ dự án cũ: mua khi Z-Score < −2, bán khi Z ≥ 0. Giữ lại để so sánh. |
 | `QuantHybridStrategy` | Spot | Bản nâng cấp: ADF nhận diện đi ngang/xu hướng rồi chọn Mean Reversion hoặc Trend. Cắt lỗ 2σ, khối lượng theo % rủi ro. |
-| `QuantHybridFuturesStrategy` | Futures | Như Hybrid, thêm **Short** và đòn bẩy x2–x5. |
+| `QuantHybridFuturesStrategy` | Futures | Như Hybrid, thêm **Short** và đòn bẩy (tối đa x2, đổi bằng `max_leverage` trong config). |
 | `QuantBreakoutStrategy` 🆕 | Spot | **Mua theo đà**: thị trường có xu hướng tăng, giá phá đỉnh 48 giờ kèm khối lượng lớn. Cắt lỗ kéo theo đỉnh (trailing 3×ATR). |
 | `QuantSmartDCAStrategy` 🆕 | Spot | **Tích luỹ từng phần** (phong cách đầu tư): mua 1 phần khi hoảng loạn (Z < −2, RSI < 30), giảm thêm 4% / 8% thì mua thêm. Chốt khi lời 4% trên giá vốn. |
 
@@ -526,7 +526,7 @@ INFO - Printing 0 Trades:
 |---|---|---|
 | Lệnh chạy bot | `./run.sh dryrun` | `./run.sh dryrun-futures` |
 | Hướng | Chỉ Long | Long **và** Short |
-| Đòn bẩy | Không | Bot tự chọn: Trend x3 · Mean Reversion x2 (x5 khi \|Z\| ≥ 3) |
+| Đòn bẩy | Không | Bot tự chọn x2–x5 theo tín hiệu, nhưng **không vượt `"max_leverage"`** trong `config.futures.json` (mặc định x2) |
 | Cách viết cặp coin | `BTC/USDT` | `BTC/USDT:USDT` |
 | Cổng web / FreqUI | 8080 | 8081 |
 | Telegram | Bật | **Tắt** mặc định |

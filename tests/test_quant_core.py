@@ -88,6 +88,18 @@ def test_var_and_kelly():
 def test_sentiment_scoring():
     assert score_text("Bitcoin ETF approve, price surge") > 0
     assert score_text("Exchange hack, market crash") < 0
+
+
+def test_news_score_whole_words_only():
+    # Trước đây khớp chuỗi con: "security" bị tính là "sec", "below" là "low", "bank" là "ban"
+    assert score_text("Bitcoin's quantum security challenge") == 0
+    assert score_text("ECB tokenized deposits, securities experiments") == 0
+    assert score_text("Bank adoption keeps growing") == 1        # chỉ "adoption", không có "ban"
+    assert score_text("ETF assets slip below $1 billion") == 1   # "etf" (+1), "below" không còn là "low"
+    # Dạng biến thể vẫn được tính
+    assert score_text("XRP falls 10% as bitcoin drops") == -2
+    assert score_text("SEC lawsuit") == -2
+    assert score_text("Solana surged, ETFs approved") == 3
     assert "Trung lập" in label_for(0)
 
 

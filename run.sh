@@ -150,6 +150,8 @@ cmd_stop() {
       kill_tree "$pid"
       for i in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
       kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null
+      # chờ tiến trình con (freqtrade) nhả cổng — nếu không, "restart" bật lại quá sớm sẽ tưởng bot còn chạy
+      for i in $(seq 1 20); do port_busy "$(svc_port "$s")" || break; sleep 1; done
       rm -f "$LOGDIR/$s.pid"
       echo "  [  TẮT   ] $(svc_label "$s")"
     elif svc_running "$s"; then
@@ -172,31 +174,93 @@ cmd_status() {
   if [[ -f "$LA_DIR/$LA_WATCHDOG.plist" ]]; then echo "  Tự bật lại bot bị tắt (5 phút/lần): CÓ"; else echo "  Tự bật lại bot bị tắt: KHÔNG"; fi
 }
 
+tg_notify() {  # gửi 1 tin Telegram (bỏ qua nếu chưa cấu hình hoặc mất mạng)
+  [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]] || return 0
+  curl -s -m 10 -o /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" --data-urlencode "text=$1" || true
+}
+
 cmd_watchdog() {
-  # Chạy mỗi 5 phút (launchd). Dịch vụ còn file .pid (= chưa bị ./run.sh stop) mà tiến trình đã chết
-  # -> coi là tắt bất thường -> bật lại + báo Telegram. Đồng thời dọn log quá 20 MB.
+  # Chạy mỗi 5 phút (launchd). Kiểm tra 4 thứ, có vấn đề thì ghi logs/watchdog.log + báo Telegram:
+  #   1. Máy ngủ / tắt: lần chạy trước cách đây > 15 phút -> bot đã "mù" trong khoảng đó.
+  #   2. Mất kết nối Binance: ghi lúc mất, báo khi có mạng lại (nếu mất >= 10 phút).
+  #   3. Bot chết: còn file .pid (= chưa bị ./run.sh stop) mà tiến trình đã chết -> bật lại.
+  #   4. Bot treo: tiến trình còn sống, mạng vẫn có, nhưng 2 lần kiểm tra liên tiếp (~10 phút)
+  #      bot không xử lý vòng lặp nào (API /health) -> khởi động lại.
+  #   Kèm: dọn log quá 20 MB.
   mkdir -p "$LOGDIR"
-  local s f restarted=()
+  local st="$LOGDIR/.watchdog" now last since s f port body ts n msgs=()
+  mkdir -p "$st"
+  now="$(date +%s)"
+  wlog() { echo "$(date '+%F %T') $1" >> "$LOGDIR/watchdog.log"; msgs+=("$1"); }
+  fmt_t() { date -r "$1" '+%H:%M %d/%m'; }
+
+  # 1. máy ngủ / tắt
+  if [[ -f "$st/last_run" ]]; then
+    last="$(cat "$st/last_run")"
+    if (( now - last > 900 )); then
+      wlog "💤 Watchdog không chạy từ $(fmt_t "$last") đến $(fmt_t "$now") (~$(( (now - last) / 60 )) phút): máy ngủ, tắt hoặc gập nắp — bot không theo dõi thị trường trong khoảng này."
+    fi
+  fi
+  echo "$now" > "$st/last_run"
+
+  # 2. kết nối Binance
+  local net_ok=1
+  curl -s -m 8 -o /dev/null "https://api.binance.com/api/v3/ping" || net_ok=0
+  if (( net_ok == 0 )); then
+    [[ -f "$st/net_down" ]] || { echo "$now" > "$st/net_down"; echo "$(date '+%F %T') Mất kết nối Binance" >> "$LOGDIR/watchdog.log"; }
+  elif [[ -f "$st/net_down" ]]; then
+    since="$(cat "$st/net_down")"; rm -f "$st/net_down"
+    if (( now - since >= 600 )); then
+      wlog "📡 Mất kết nối Binance từ $(fmt_t "$since") đến $(fmt_t "$now") (~$(( (now - since) / 60 )) phút) — bot không nhận được giá trong khoảng này."
+    fi
+  fi
+
+  # 3. bot chết bất thường
   for s in "${SERVICES[@]}"; do
     f="$LOGDIR/$s.pid"
     [[ -f "$f" ]] || continue
     [[ -n "$(svc_pid "$s")" ]] && continue
     rm -f "$f"
     if svc_running "$s"; then continue; fi   # đang chạy trong Terminal -> không đụng vào
-    echo "$(date '+%F %T') $(svc_label "$s") tắt bất thường -> bật lại" >> "$LOGDIR/watchdog.log"
     cmd_start "$s" >> "$LOGDIR/watchdog.log" 2>&1
-    restarted+=("$(svc_label "$s")")
+    wlog "⚠️ $(svc_label "$s") bị tắt bất thường — đã tự bật lại."
   done
+
+  # 4. bot treo (chỉ xét khi có mạng: mất mạng thì bot đứng chờ là bình thường)
+  if (( net_ok == 1 )); then
+    for s in hybrid breakout dca futures; do
+      f="$LOGDIR/$s.pid"
+      if [[ -z "$(svc_pid "$s")" ]] || (( now - $(stat -f %m "$f") < 600 )); then  # tắt hoặc vừa bật
+        rm -f "$st/$s.bad"; continue
+      fi
+      port="$(svc_port "$s")"
+      body="$(curl -s -m 5 -u "${FREQTRADE__API_SERVER__USERNAME:-}:${FREQTRADE__API_SERVER__PASSWORD:-}" \
+               "http://127.0.0.1:$port/api/v1/health" || true)"
+      ts="$(printf '%s' "$body" | grep -o '"last_process_ts":[0-9]*' | cut -d: -f2 || true)"
+      if [[ -n "$ts" ]] && (( now - ts <= 600 )); then rm -f "$st/$s.bad"; continue; fi
+      n=$(( $(cat "$st/$s.bad" 2>/dev/null || echo 0) + 1 ))
+      echo "$n" > "$st/$s.bad"
+      echo "$(date '+%F %T') $(svc_label "$s") không phản hồi lần $n (health: ${body:-không trả lời})" >> "$LOGDIR/watchdog.log"
+      if (( n >= 2 )); then
+        rm -f "$st/$s.bad"
+        { cmd_stop "$s"; cmd_start "$s"; } >> "$LOGDIR/watchdog.log" 2>&1
+        wlog "🔁 $(svc_label "$s") bị treo (> 10 phút không xử lý) — đã khởi động lại."
+      fi
+    done
+  fi
+
   for f in "$LOGDIR"/*.log; do
     [[ -f "$f" ]] || continue
     if [[ "$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f")" -gt 20971520 ]]; then
       cp "$f" "$f.1" && : > "$f"   # giữ 1 bản cũ (.log.1), bot vẫn ghi tiếp vào file hiện tại
     fi
   done
-  if [[ ${#restarted[@]} -gt 0 && -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
-    curl -s -m 10 -o /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-      --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-      --data-urlencode "text=⚠️ QuantFreqtrade: ${restarted[*]} bị tắt bất thường — đã tự bật lại." || true
+
+  if [[ ${#msgs[@]} -gt 0 ]]; then
+    local text="🐶 QuantFreqtrade watchdog"
+    for f in "${msgs[@]}"; do text+=$'\n'"• $f"; done
+    tg_notify "$text"
   fi
   return 0
 }
