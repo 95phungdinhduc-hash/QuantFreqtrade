@@ -617,6 +617,12 @@ def strategy_evidence() -> dict[str, dict]:
     return out
 
 
+try:
+    FUT_LEV = float(json.loads((settings.USER_DATA / "config.futures.json").read_text())
+                    .get("quant", {}).get("max_leverage", 2))
+except Exception:
+    FUT_LEV = 2.0
+
 STRATEGY_LIBRARY = [
     ("QuantHybridStrategy", "🔄 Hybrid (Mean Reversion + Trend)", "Spot · Long",
      "Thị trường đi ngang: mua khi Z-Score &lt; −2 và đã quay đầu, bán khi về trung bình. "
@@ -630,7 +636,7 @@ STRATEGY_LIBRARY = [
      "Thị trường hoảng loạn (Z &lt; −2, RSI &lt; 30): mua 1 phần; giảm thêm 4% / 8% thì mua thêm 1 / 1,5 phần.",
      "Chốt khi lời 4% trên giá vốn. Cắt lỗ −12% trên giá vốn; tổng tiền 1 coin giới hạn theo % rủi ro.",
      "./run.sh dryrun-dca"),
-    ("QuantHybridFuturesStrategy", "⚡ Hybrid Futures — Long &amp; Short", "Futures · tối đa x2",
+    ("QuantHybridFuturesStrategy", "⚡ Hybrid Futures — Long &amp; Short", f"Futures · tối đa x{FUT_LEV:g}",
      "Như Hybrid nhưng thêm lệnh Short khi quá mua / xu hướng giảm.",
      "Đòn bẩy nhân cả lời lẫn lỗ. Chỉ dành cho hồ sơ Cân bằng / Mạo hiểm.", "./run.sh dryrun-futures"),
     ("QuantZScoreStrategy", "📐 Z-Score gốc", "Spot · Long · tham chiếu",

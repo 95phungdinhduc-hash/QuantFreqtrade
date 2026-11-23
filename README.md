@@ -185,7 +185,7 @@ Khi backtest, bot dùng `"risk_pct": 1.5` cố định để kết quả lặp l
 
 `QuantHybridFuturesStrategy` có thêm lệnh **Short** đối xứng và đòn bẩy giống alert bot cũ
 (x5 khi |Z| ≥ 3, x2 cho Mean Reversion, x3 cho Trend), **nhưng bị giới hạn bởi `"max_leverage"`
-trong `user_data/config.futures.json` (mặc định x2)**. Backtest 2 năm: x2 lỗ ít hơn x5 (−9,4% so với −13,8%).
+trong `user_data/config.futures.json` (hiện đặt x5)**. Backtest 2 năm: x2 lỗ ít hơn x5 (−9,4% so với −13,8%).
 
 ### Kết quả backtest thực tế (25/05 đến 20/11/2026, BTC/ETH/SOL/BNB, khung 1h, vốn 1000 USDT, phí 0.1%)
 

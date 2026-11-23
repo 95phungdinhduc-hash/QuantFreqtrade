@@ -31,7 +31,8 @@ MIN_DAYS = 60            # số ngày chạy dry-run
 STABLE_SHARE = 0.75      # walk-forward: có lãi ở >= 75% số giai đoạn
 MAX_DOWNTIME_MIN = 60    # tổng thời gian máy ngủ / mất mạng trong 14 ngày
 MAX_RISK_PCT = 2.0
-MAX_LEVERAGE = 2
+SAFE_LEVERAGE = 2        # backtest 2 năm: x2 lỗ ít hơn x5 (-9,4% so với -13,8%)
+MAX_LEVERAGE = 5         # trên mức này là chưa đạt
 
 BOTS = {"Hybrid": "tradesv3.hybrid.dryrun.sqlite", "Breakout": "tradesv3.breakout.dryrun.sqlite",
         "Smart DCA": "tradesv3.dca.dryrun.sqlite", "Futures": "tradesv3.futures.dryrun.sqlite"}
@@ -100,8 +101,15 @@ def check_operations() -> None:
     add(g, 0 < mto <= 6 and bool(q.get("one_bot_per_pair")), "Trần rủi ro chung giữa các bot",
         f"tối đa {mto} lệnh cùng hướng · 1 coin chỉ 1 bot giữ: {bool(q.get('one_bot_per_pair'))}")
 
-    lev = float(fut.get("quant", {}).get("max_leverage", 5))
-    add(g, lev <= MAX_LEVERAGE, f"Đòn bẩy Futures ≤ x{MAX_LEVERAGE}", f"max_leverage = x{lev:g}")
+    lev = float(fut.get("quant", {}).get("max_leverage", 2))
+    if lev <= SAFE_LEVERAGE:
+        add(g, True, f"Đòn bẩy Futures ≤ x{MAX_LEVERAGE}", f"max_leverage = x{lev:g}")
+    elif lev <= MAX_LEVERAGE:
+        add(g, None, f"Đòn bẩy Futures ≤ x{MAX_LEVERAGE}",
+            f"max_leverage = x{lev:g} (bạn chọn) — backtest 2 năm x{SAFE_LEVERAGE} lỗ ít hơn; "
+            "cân nhắc hạ khi dùng tiền thật")
+    else:
+        add(g, False, f"Đòn bẩy Futures ≤ x{MAX_LEVERAGE}", f"max_leverage = x{lev:g} — quá cao")
 
     try:
         from quant_core.settings import get_user_settings
