@@ -42,7 +42,7 @@ Hoặc VS Code → `Cmd + Shift + P` → **Tasks: Run Task** → **▶️ BẬT 
 | **Hybrid** | Đi ngang hoặc xu hướng nhẹ | `./run.sh dryrun` | http://127.0.0.1:8080 |
 | **Breakout** | Tăng mạnh, phá đỉnh | `./run.sh dryrun-breakout` | http://127.0.0.1:8082 |
 | **Smart DCA** | Hoảng loạn, muốn tích luỹ dần | `./run.sh dryrun-dca` | http://127.0.0.1:8083 |
-| **Futures** (Long + Short, đòn bẩy tối đa x2) | Giảm mạnh, muốn Short | `./run.sh dryrun-futures` | http://127.0.0.1:8081 |
+| **Futures** (Long + Short, đòn bẩy ≤ `max_leverage`) | Giảm mạnh, muốn Short | `./run.sh dryrun-futures` | http://127.0.0.1:8081 |
 
 - Đăng nhập web: `freqtrader` / mật khẩu ở dòng `FREQTRADE__API_SERVER__PASSWORD` trong file `.env`.
 - **Cả 4 bot đều nhắn Telegram** khi vào/thoát lệnh (tin có tên bot, ví dụ `🟢 [Breakout] VÀO LỆNH…`).
@@ -85,7 +85,8 @@ Chi tiết từng giai đoạn (có/không lọc): dashboard → tab 📊 Backte
 | | `./run.sh backtest-futures` | Backtest Futures |
 | | `./run.sh validate` | **Kiểm chứng từng giai đoạn 6 tháng** (10–20 phút) |
 | | `./run.sh plot BTC/USDT` | Vẽ lệnh backtest lên biểu đồ (`user_data/plot/`) |
-| **Kiểm tra** | `./run.sh check-bias` | Chiến lược có "nhìn trước tương lai" không (`No` là tốt) |
+| **Kiểm tra** | `./run.sh readiness` | **Đã đủ điều kiện dùng tiền thật chưa?** Chấm từng tiêu chí ✅/❌ |
+| | `./run.sh check-bias` | Chiến lược có "nhìn trước tương lai" không (`No` là tốt) |
 | | `./run.sh hyperopt 200` | Tự tìm tham số tốt hơn (10–30 phút) |
 | | `./run.sh test` | Kiểm tra code còn chạy đúng |
 | **Theo dõi** | `./run.sh status` | Cái gì đang chạy |
@@ -100,7 +101,28 @@ Chi tiết từng giai đoạn (có/không lọc): dashboard → tab 📊 Backte
 
 ---
 
-## 3. Lệnh Telegram (gửi cho bot Hybrid)
+## 3. Trước khi nghĩ tới tiền thật
+
+Chạy `./run.sh readiness` — hệ thống tự chấm 3 nhóm: **bằng chứng chiến lược** (walk-forward ổn định,
+mỗi bot dry-run ≥ 30 lệnh, ≥ 60 ngày, có lãi), **an toàn vận hành**, **bảo mật**. Còn ❌ là chưa nên dùng tiền thật.
+
+Những gì hệ thống đã tự lo:
+- **Cắt lỗ đặt luôn trên sàn** (`stoploss_on_exchange`): Mac ngủ hay mất mạng thì lệnh vẫn có cắt lỗ trên Binance.
+- **Mỗi bot một phần vốn**: `"capital"` trong `user_data/config.json` — hiện Hybrid 40% · Breakout 30% · DCA 30%
+  của 1000 USDT (Futures 1000 USDT riêng). Dry-run cũng mô phỏng đúng như vậy.
+- **Trần rủi ro chung**: tối đa `"max_total_open": 4` lệnh cùng hướng trên **tất cả** bot, và 1 coin chỉ 1 bot
+  được giữ cùng hướng (`"one_bot_per_pair"`).
+
+Những việc **bạn phải tự làm**:
+- **Đổi token Telegram**: nhắn @BotFather → `/revoke` → chọn bot → dán token mới vào `.env`
+  (2 dòng `TELEGRAM_BOT_TOKEN` và `FREQTRADE__TELEGRAM__TOKEN`) → `./run.sh restart all`.
+- **Đổi khoá Gemini**: Google AI Studio → API keys → xoá khoá cũ, tạo khoá mới → dòng `GEMINI_API_KEY` trong `.env`.
+- **Không để Mac ngủ** (không gập nắp, hoặc cắm sạc + màn hình ngoài), hoặc chuyển lên VPS khi chạy thật.
+- Khi tạo khoá API Binance: **tắt quyền rút tiền**, **chỉ cho phép IP máy chạy bot**, dùng **tài khoản con** riêng.
+
+---
+
+## 4. Lệnh Telegram (gửi cho bot Hybrid)
 
 | Lệnh | Làm gì |
 |---|---|
@@ -114,7 +136,7 @@ Chi tiết từng giai đoạn (có/không lọc): dashboard → tab 📊 Backte
 
 ---
 
-## 4. Gặp lỗi?
+## 5. Gặp lỗi?
 
 | Thấy | Làm |
 |---|---|

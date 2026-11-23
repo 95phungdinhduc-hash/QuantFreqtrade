@@ -269,6 +269,10 @@ class QuantHybridStrategy(IStrategy):
                             side: str, **kwargs) -> bool:
         if self.dp.runmode.value not in ("live", "dry_run"):
             return True
+        from quant_core.strategy_common import portfolio_allows
+
+        if not portfolio_allows(self.config, pair, side):  # trần rủi ro chung giữa các bot
+            return False
         if not self.config.get("quant", {}).get("news_filter", True):
             return True
         now = datetime.now(timezone.utc)

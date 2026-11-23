@@ -11,9 +11,63 @@ Giống hệt logic trong QuantHybridStrategy, tách ra để không phải ché
 from __future__ import annotations
 
 import logging
+import sqlite3
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+# ------------------------------------------------------------------ trần rủi ro chung giữa các bot
+# Mỗi bot có database riêng nên tự nó không biết bot khác đang giữ gì. Trước khi mở lệnh mới, đọc
+# (chỉ đọc) database của TẤT CẢ bot cùng chế độ (dry-run hoặc live) để:
+#   * "max_total_open": tổng số lệnh CÙNG HƯỚNG (Long hoặc Short) của mọi bot không vượt mức này
+#   * "one_bot_per_pair": một coin chỉ được 1 bot giữ theo cùng hướng (tránh nhân đôi cùng 1 cược)
+# BTC/ETH/SOL/BNB thường lên xuống cùng nhau -> nhiều lệnh Long cùng lúc ~ 1 cược lớn vào "crypto tăng".
+def portfolio_dbs(dry_run: bool, root: Path = ROOT) -> list[Path]:
+    files = sorted({*root.glob("tradesv3*.sqlite"), *(root / "user_data").glob("tradesv3*.sqlite")})
+    return [f for f in files if ("dryrun" in f.name) == bool(dry_run)]
+
+
+def open_positions(dbs: list[Path]) -> list[tuple[str, bool, str]]:
+    """[(coin gốc, is_short, tên database)] của mọi lệnh đang mở."""
+    out: list[tuple[str, bool, str]] = []
+    for f in dbs:
+        try:
+            con = sqlite3.connect(f"file:{f}?mode=ro", uri=True, timeout=2)
+            try:
+                rows = con.execute("SELECT pair, is_short FROM trades WHERE is_open = 1").fetchall()
+            finally:
+                con.close()
+        except Exception as e:  # database đang khởi tạo / khoá -> bỏ qua, không chặn bot
+            logger.debug("Không đọc được %s: %s", f.name, e)
+            continue
+        out += [(str(pair).split("/")[0], bool(short), f.name) for pair, short in rows]
+    return out
+
+
+def portfolio_allows(config: dict, pair: str, side: str, dbs: list[Path] | None = None) -> bool:
+    q = config.get("quant", {})
+    max_total = int(q.get("max_total_open", 0) or 0)
+    one_per_pair = bool(q.get("one_bot_per_pair", False))
+    if not max_total and not one_per_pair:
+        return True
+    want_short = side == "short"
+    coin = pair.split("/")[0]
+    same_dir = [p for p in open_positions(dbs if dbs is not None else portfolio_dbs(config.get("dry_run", True)))
+                if p[1] == want_short]
+    word = "SHORT" if want_short else "LONG"
+    if max_total and len(same_dir) >= max_total:
+        logger.info("Chặn lệnh %s %s: các bot đã giữ %d lệnh %s (trần chung max_total_open = %d)",
+                    word, pair, len(same_dir), word, max_total)
+        return False
+    if one_per_pair and any(c == coin for c, _, _ in same_dir):
+        holder = next(db for c, _, db in same_dir if c == coin)
+        logger.info("Chặn lệnh %s %s: %s đã được giữ %s ở %s (one_bot_per_pair)", word, pair, coin, word, holder)
+        return False
+    return True
 
 
 # ------------------------------------------------------------------ bộ lọc thị trường chung
@@ -133,4 +187,6 @@ class QuantRiskMixin:
     def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
                             time_in_force: str, current_time: datetime, entry_tag: str | None,
                             side: str, **kwargs) -> bool:
+        if self.dp.runmode.value in ("live", "dry_run") and not portfolio_allows(self.config, pair, side):
+            return False
         return self._news_allows(pair, side)

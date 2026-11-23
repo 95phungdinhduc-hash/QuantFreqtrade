@@ -140,3 +140,33 @@ def test_alert_instructions_contain_steps_qty_and_pct():
     assert "đứng ngoài" in spot_instructions("BTC/USDT", 60000, plan, False, 1000)
     fut = futures_instructions("BTC/USDT", 60000, plan, plan, True, 3, 250.0, 0.75, "")
     assert "Isolated" in fut and "x3" in fut and "LONG" in fut
+
+
+def _fake_db(path, trades):
+    import sqlite3
+
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, pair TEXT, is_short INTEGER, is_open INTEGER)")
+    con.executemany("INSERT INTO trades (pair, is_short, is_open) VALUES (?, ?, ?)", trades)
+    con.commit()
+    con.close()
+
+
+def test_portfolio_cap_across_bots(tmp_path):
+    from quant_core.strategy_common import portfolio_allows, portfolio_dbs
+
+    (tmp_path / "user_data").mkdir()
+    _fake_db(tmp_path / "user_data/tradesv3.hybrid.dryrun.sqlite", [("BTC/USDT", 0, 1), ("ETH/USDT", 0, 0)])
+    _fake_db(tmp_path / "user_data/tradesv3.dca.dryrun.sqlite", [("SOL/USDT", 0, 1)])
+    _fake_db(tmp_path / "user_data/tradesv3.futures.dryrun.sqlite", [("BNB/USDT:USDT", 1, 1)])
+    _fake_db(tmp_path / "user_data/tradesv3.sqlite", [("XRP/USDT", 0, 1)] * 9)  # DB live: không được tính
+    dbs = portfolio_dbs(True, tmp_path)
+    assert len(dbs) == 3
+    cfg = {"dry_run": True, "quant": {"max_total_open": 3, "one_bot_per_pair": True}}
+    assert portfolio_allows(cfg, "BNB/USDT", "long", dbs)            # Long #3 -> còn chỗ
+    assert not portfolio_allows(cfg, "BTC/USDT:USDT", "long", dbs)   # BTC đã có bot giữ Long
+    assert portfolio_allows(cfg, "BTC/USDT:USDT", "short", dbs)      # Short khác hướng -> được
+    assert not portfolio_allows(cfg, "BNB/USDT:USDT", "short", dbs)  # BNB đã được Short
+    cfg["quant"]["max_total_open"] = 2
+    assert not portfolio_allows(cfg, "ADA/USDT", "long", dbs)        # đã 2 Long -> chạm trần
+    assert portfolio_allows({"quant": {}}, "BTC/USDT", "long", dbs)  # không cấu hình -> không chặn

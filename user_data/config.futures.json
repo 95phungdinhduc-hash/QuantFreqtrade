@@ -18,7 +18,21 @@
         "sync_risk_from_dashboard": true,
         "news_filter": true,
         "market_filter": true,
-        "max_leverage": 2
+        "max_leverage": 5,
+        "capital": {"total_usdt": 1000, "split": {"futures": 1.0}},
+        "max_total_open": 4,
+        "one_bot_per_pair": true
+    },
+    "order_types": {
+        "entry": "limit",
+        "exit": "limit",
+        "emergency_exit": "market",
+        "force_exit": "market",
+        "force_entry": "market",
+        "stoploss": "market",
+        "stoploss_on_exchange": true,
+        "stoploss_on_exchange_interval": 60,
+        "stoploss_on_exchange_limit_ratio": 0.99
     },
     "unfilledtimeout": {
         "entry": 10,

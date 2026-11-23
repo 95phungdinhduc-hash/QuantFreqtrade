@@ -199,19 +199,22 @@ def bot_snapshot(url: str) -> dict | None:
 
 @st.cache_data(ttl=60, show_spinner=False)
 def bot_capital() -> tuple[float | None, str]:
-    """Vốn thật của bot Hybrid: tổng số dư qua API (live hoặc dry-run), không được thì dry_run_wallet trong config."""
+    """Tổng vốn Spot của hệ thống: quant.capital.total_usdt (chia cho các bot), không có thì ví bot Hybrid."""
     try:
-        bal = FreqtradeClient(url=settings.FT_API_URL, timeout=3).balance()
-        total = float(bal.get("total") or 0)
-        if total > 0:
-            return total, "số dư bot Hybrid hiện tại"
+        cfg = json.loads((settings.USER_DATA / "config.json").read_text())
+        cap = cfg.get("quant", {}).get("capital", {})
+        if float(cap.get("total_usdt", 0)) > 0:
+            split = " · ".join(f"{k} {v:.0%}" for k, v in cap.get("split", {}).items())
+            return float(cap["total_usdt"]), f"tổng vốn Spot trong config, chia {split}"
     except Exception:
         pass
     try:
-        cfg = json.loads((settings.USER_DATA / "config.json").read_text())
-        return float(cfg.get("dry_run_wallet", 1000)), "ví ảo dry-run trong config"
+        bal = FreqtradeClient(url=settings.FT_API_URL, timeout=3).balance()
+        if float(bal.get("total") or 0) > 0:
+            return float(bal["total"]), "số dư bot Hybrid hiện tại"
     except Exception:
-        return None, ""
+        pass
+    return None, ""
 
 
 def latest_backtest(strategy: str = "QuantHybridStrategy") -> Path | None:

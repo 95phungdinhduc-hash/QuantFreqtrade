@@ -174,6 +174,19 @@ cmd_status() {
   if [[ -f "$LA_DIR/$LA_WATCHDOG.plist" ]]; then echo "  Tự bật lại bot bị tắt (5 phút/lần): CÓ"; else echo "  Tự bật lại bot bị tắt: KHÔNG"; fi
 }
 
+capital_env() {  # $1 = tên bot, $2 = file config -> CAP_ENV: vốn riêng của bot (quant.capital trong config)
+  # Nhiều bot dùng chung 1 tài khoản sàn thì mỗi bot chỉ được dùng phần vốn của nó
+  # (available_capital); dry-run cũng mô phỏng y như vậy (dry_run_wallet = phần vốn đó).
+  local v
+  v="$("$PY" -c 'import json,sys
+c = json.load(open(sys.argv[1])).get("quant", {}).get("capital", {})
+t, s = float(c.get("total_usdt", 0)), float(c.get("split", {}).get(sys.argv[2], 0))
+print(round(t * s, 2) if t > 0 and s > 0 else "")' "$2" "$1" 2>/dev/null || true)"
+  CAP_ENV=()
+  [[ -n "$v" ]] && CAP_ENV=(FREQTRADE__DRY_RUN_WALLET="$v" FREQTRADE__AVAILABLE_CAPITAL="$v")
+  return 0
+}
+
 tg_notify() {  # gửi 1 tin Telegram (bỏ qua nếu chưa cấu hình hoặc mất mạng)
   [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]] || return 0
   curl -s -m 10 -o /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
@@ -343,7 +356,8 @@ Cách dùng: ./run.sh <lệnh> [tham số thêm cho freqtrade]
     logs [tên]         Xem log trực tiếp, ví dụ: ./run.sh logs hybrid   (Ctrl + C để thoát)
     weekly             Tải dữ liệu mới + backtest-all (việc hằng tuần)
     autostart on|off   Tự bật khi mở máy + weekly mỗi Chủ nhật 8:00 + tự bật lại bot bị tắt (5 phút/lần)
-    watchdog           Kiểm tra 1 lần: bot nào tắt bất thường thì bật lại (autostart tự chạy lệnh này)
+    watchdog           Kiểm tra 1 lần: bot chết/treo thì bật lại, báo máy ngủ / mất mạng (autostart chạy 5 phút/lần)
+    readiness          Chấm từng điều kiện trước khi dùng tiền thật (bằng chứng, an toàn, bảo mật)
 
   CÀI ĐẶT
     setup              Tạo môi trường .venv, cài Freqtrade + thư viện, tạo .env
@@ -441,13 +455,18 @@ print(str(m[0]).replace(".meta.json",".zip") if m else "")')"
             "$FT" plot-dataframe -c "$CFG" -s QuantHybridStrategy -p "$pair" --no-trades \
               --indicators1 rolling_mean ema_fast ema_slow --indicators2 z_score adf_p "$@"
           fi ;;
-        dryrun)    "$FT" trade -c "$CFG" "$@" ;;
+        dryrun)
+          capital_env hybrid "$CFG"
+          env ${CAP_ENV[@]+"${CAP_ENV[@]}"} \
+            "$FT" trade -c "$CFG" --db-url "sqlite:///user_data/tradesv3.hybrid.dryrun.sqlite" "$@" ;;
         dryrun-futures)
           # Chỉ 1 bot được dùng 1 Telegram token cùng lúc -> mặc định tắt Telegram cho bot futures.
           # Chỉ chạy bot Futures (không chạy bot Spot) mà muốn có Telegram:
           #   FUTURES_TELEGRAM=true ./run.sh dryrun-futures
           [[ "${FUTURES_TELEGRAM:-false}" == true ]] || tg_webhook_env "Futures"
-          env ${WEBHOOK_ENV[@]+"${WEBHOOK_ENV[@]}"} FREQTRADE__TELEGRAM__ENABLED="${FUTURES_TELEGRAM:-false}" \
+          capital_env futures "$CFG_FUT"
+          env ${WEBHOOK_ENV[@]+"${WEBHOOK_ENV[@]}"} ${CAP_ENV[@]+"${CAP_ENV[@]}"} \
+            FREQTRADE__TELEGRAM__ENABLED="${FUTURES_TELEGRAM:-false}" \
             "$FT" trade -c "$CFG_FUT" "$@" ;;
         dryrun-breakout|dryrun-dca)
           # Bot Spot thứ 2/3: cổng API & database riêng để chạy song song với bot Hybrid.
@@ -456,7 +475,9 @@ print(str(m[0]).replace(".meta.json",".zip") if m else "")')"
           if [[ "$cmd" == "dryrun-breakout" ]]; then strat=QuantBreakoutStrategy; port=8082; db=breakout
           else strat=QuantSmartDCAStrategy; port=8083; db=dca; fi
           [[ "${STRATEGY_TELEGRAM:-false}" == true ]] || tg_webhook_env "$( [[ $db == dca ]] && echo "Smart DCA" || echo "Breakout")"
-          env ${WEBHOOK_ENV[@]+"${WEBHOOK_ENV[@]}"} FREQTRADE__TELEGRAM__ENABLED="${STRATEGY_TELEGRAM:-false}" \
+          capital_env "$db" "$CFG"
+          env ${WEBHOOK_ENV[@]+"${WEBHOOK_ENV[@]}"} ${CAP_ENV[@]+"${CAP_ENV[@]}"} \
+          FREQTRADE__TELEGRAM__ENABLED="${STRATEGY_TELEGRAM:-false}" \
           FREQTRADE__API_SERVER__LISTEN_PORT=$port FREQTRADE__BOT_NAME="QuantFreqtrade-$db" \
             "$FT" trade -c "$CFG" -s "$strat" --db-url "sqlite:///user_data/tradesv3.$db.dryrun.sqlite" "$@" ;;
         dashboard) "$ROOT/.venv/bin/streamlit" run dashboard/app.py --server.port 8502 "$@" ;;
@@ -469,9 +490,10 @@ print(str(m[0]).replace(".meta.json",".zip") if m else "")')"
         logs)      cmd_logs "$@" ;;
         weekly)    cmd_weekly ;;
         watchdog)  cmd_watchdog ;;
+        readiness) "$PY" tools/readiness.py ;;
         autostart) cmd_autostart "$@" ;;
         trades)
-          "$FT" show-trades -c "$CFG" --db-url "sqlite:///tradesv3.dryrun.sqlite" "$@" ;;
+          "$FT" show-trades -c "$CFG" --db-url "sqlite:///user_data/tradesv3.hybrid.dryrun.sqlite" "$@" ;;
         trades-futures)
           "$FT" show-trades -c "$CFG_FUT" --db-url "sqlite:///user_data/tradesv3.futures.dryrun.sqlite" "$@" ;;
         ft)        "$FT" "$@" ;;
