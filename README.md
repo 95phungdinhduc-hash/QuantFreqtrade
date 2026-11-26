@@ -2,6 +2,16 @@
 
 > 📘 **Lệnh hay dùng (bản ngắn):** [LENH.md](LENH.md) · **Hướng dẫn chi tiết có ví dụ:** [HUONG_DAN_CHI_TIET.md](HUONG_DAN_CHI_TIET.md) · **Đọc hiểu dashboard:** [HUONG_DAN_DASHBOARD.md](HUONG_DAN_DASHBOARD.md)
 
+> 📱 **Web app (mở trên điện thoại, không cần Mac):** https://95phungdinhduc-hash.github.io/QuantFreqtrade/
+>
+> App gồm tín hiệu Spot/Futures có SL/TP, biểu đồ Z-Score, máy tính khối lượng và chỉ số Sợ hãi & Tham lam.
+> Mọi phép tính chạy ngay trên máy bạn từ giá công khai của Binance. Logic giống alert bot, có kiểm thử khớp số với bản Python.
+> Không có bot và không có khoá API.
+>
+> - Cài như app: Safari → Chia sẻ → *Thêm vào Màn hình chính*.
+> - Mã nguồn ở `docs/`. GitHub Pages đăng thẳng thư mục này từ nhánh `main`, đẩy code lên là trang tự cập nhật sau khoảng 1 phút.
+> - Đổi logic tín hiệu trong `quant_core` thì chạy `.venv/bin/python tools/make_web_fixture.py`, rồi `./run.sh test` để kiểm tra bản JS vẫn khớp số.
+
 > 🆕 **Mới:** 2 chiến lược `QuantBreakoutStrategy` (mua theo đà) và `QuantSmartDCAStrategy` (tích luỹ từng phần),
 > lệnh `./run.sh backtest-all` so sánh cả 4 chiến lược Spot, và tab **🧭 Tư vấn** trên dashboard
 > (chấm điểm coin, chiến lược phù hợp, phân bổ vốn theo hồ sơ rủi ro, AI tóm tắt). Xem mục 11.1 trong HUONG_DAN_CHI_TIET.md.

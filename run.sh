@@ -370,7 +370,7 @@ Cách dùng: ./run.sh <lệnh> [tham số thêm cho freqtrade]
 
   CÀI ĐẶT
     setup              Tạo môi trường .venv, cài Freqtrade + thư viện, tạo .env
-    test               Chạy kiểm thử tự động (pytest)
+    test               Chạy kiểm thử tự động (pytest + web app khớp số với Python)
 
   DỮ LIỆU
     import             Chuyển dữ liệu từ ../QuantTradingSystem/quant_data.db (chỉ đọc)
@@ -420,7 +420,8 @@ main() {
       # Hệ thống này chỉ gửi tín hiệu để bạn TỰ đặt lệnh — không bao giờ tự giao dịch bằng tiền thật.
       export FREQTRADE__DRY_RUN=true
       case "$cmd" in
-        test)      "$PY" -m pytest -q tests "$@" ;;
+        test)      "$PY" -m pytest -q tests "$@"
+                   if command -v node >/dev/null; then node --test tests/web/; else echo "(bỏ qua kiểm thử web app: chưa cài Node)"; fi ;;
         import)    "$PY" tools/import_legacy_db.py "$@" ;;
         download)
           local days="${1:-365}"; shift || true
