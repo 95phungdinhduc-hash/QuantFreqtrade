@@ -170,3 +170,62 @@ def test_portfolio_cap_across_bots(tmp_path):
     cfg["quant"]["max_total_open"] = 2
     assert not portfolio_allows(cfg, "ADA/USDT", "long", dbs)        # đã 2 Long -> chạm trần
     assert portfolio_allows({"quant": {}}, "BTC/USDT", "long", dbs)  # không cấu hình -> không chặn
+
+
+def test_correlated_cap(tmp_path):
+    """Giống ngày 25/11: bot Futures đang Short SOL + ETH -> Short BTC (tương quan cao) phải bị chặn."""
+    from quant_core.strategy_common import portfolio_allows, portfolio_dbs
+
+    (tmp_path / "user_data").mkdir()
+    _fake_db(tmp_path / "user_data/tradesv3.futures.dryrun.sqlite",
+             [("SOL/USDT:USDT", 1, 1), ("ETH/USDT:USDT", 1, 1), ("BNB/USDT:USDT", 0, 1)])
+    dbs = portfolio_dbs(True, tmp_path)
+    cfg = {"dry_run": True, "quant": {"max_total_open": 4, "max_correlated_open": 2, "corr_threshold": 0.8}}
+    high = lambda a, b: 0.88                                           # noqa: E731
+    assert not portfolio_allows(cfg, "BTC/USDT:USDT", "short", dbs, corr_fn=high)   # lệnh Short thứ 3 cùng nhóm
+    assert portfolio_allows(cfg, "BTC/USDT:USDT", "long", dbs, corr_fn=high)        # chỉ 1 Long đang mở
+    low = lambda a, b: 0.3                                             # noqa: E731
+    assert portfolio_allows(cfg, "DOGE/USDT:USDT", "short", dbs, corr_fn=low)       # coin ít tương quan -> được
+    assert not portfolio_allows(cfg, "BTC/USDT:USDT", "short", dbs)                 # thiếu dữ liệu -> coi như tương quan
+    cfg["quant"]["max_correlated_open"] = 0
+    assert portfolio_allows(cfg, "BTC/USDT:USDT", "short", dbs, corr_fn=high)       # tắt luật -> như cũ
+
+
+def test_make_corr_fn():
+    import numpy as np
+    import pandas as pd
+    from quant_core.strategy_common import make_corr_fn
+
+    rng = np.random.default_rng(0)
+    dates = pd.date_range("2026-01-01", periods=800, freq="1h", tz="UTC")
+    base = np.cumsum(rng.normal(0, 0.01, 800))
+    data = {"BTC": base, "ETH": base + rng.normal(0, 0.002, 800), "XYZ": np.cumsum(rng.normal(0, 0.01, 800))}
+
+    class DP:
+        def get_pair_dataframe(self, pair, tf):
+            coin = pair.split("/")[0]
+            assert pair.endswith(":USDT") and tf == "1h"
+            return pd.DataFrame({"date": dates, "close": 100 * np.exp(data[coin])}) if coin in data else pd.DataFrame()
+
+    corr = make_corr_fn(DP(), {"stake_currency": "USDT", "trading_mode": "futures"}, "1h")
+    assert corr("BTC", "ETH") > 0.8
+    assert abs(corr("BTC", "XYZ")) < 0.3
+    assert corr("BTC", "NOPE") is None
+
+
+def test_log_dedup_filter():
+    import logging
+    from quant_core.logfilter import DedupFilter
+
+    t = [0.0]
+    f = DedupFilter(window=600, clock=lambda: t[0])
+    rec = lambda msg, lvl=logging.WARNING: logging.LogRecord("freqtrade.exchange", lvl, "", 0, msg, (), None)  # noqa: E731
+    assert f.filter(rec("Could not fetch BTC/USDT 1h, retry 1"))          # lần đầu: ghi
+    for i in range(500):                                                   # mất mạng: lặp lại -> gộp
+        assert not f.filter(rec(f"Could not fetch BTC/USDT 1h, retry {i}"))
+    assert f.filter(rec("Could not fetch ETH/USDT 1h, retry 1"))          # tin khác: vẫn ghi
+    assert f.filter(rec("Bot heartbeat 1", logging.INFO))                 # INFO: không đụng tới
+    assert f.filter(rec("Bot heartbeat 1", logging.INFO))
+    t[0] = 601
+    r = rec("Could not fetch BTC/USDT 1h, retry 9")
+    assert f.filter(r) and "lặp lại 500 lần" in r.getMessage()            # hết cửa sổ: ghi kèm tổng kết

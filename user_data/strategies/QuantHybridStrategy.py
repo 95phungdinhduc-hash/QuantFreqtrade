@@ -264,14 +264,20 @@ class QuantHybridStrategy(IStrategy):
     # ------------------------------------------------------------------ bộ lọc tin tức (live)
     _news_cache: tuple[datetime, int] | None = None
 
+    def bot_start(self, **kwargs) -> None:
+        from quant_core.logfilter import install_log_dedup
+
+        install_log_dedup()                        # gộp cảnh báo lặp lại khi mất mạng (log khỏi phình)
+
     def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
                             time_in_force: str, current_time: datetime, entry_tag: str | None,
                             side: str, **kwargs) -> bool:
         if self.dp.runmode.value not in ("live", "dry_run"):
             return True
-        from quant_core.strategy_common import portfolio_allows
+        from quant_core.strategy_common import make_corr_fn, portfolio_allows
 
-        if not portfolio_allows(self.config, pair, side):  # trần rủi ro chung giữa các bot
+        corr = make_corr_fn(self.dp, self.config, self.timeframe)
+        if not portfolio_allows(self.config, pair, side, corr_fn=corr):  # trần rủi ro chung giữa các bot
             return False
         if not self.config.get("quant", {}).get("news_filter", True):
             return True

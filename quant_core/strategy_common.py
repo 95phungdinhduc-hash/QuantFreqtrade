@@ -48,11 +48,51 @@ def open_positions(dbs: list[Path]) -> list[tuple[str, bool, str]]:
     return out
 
 
-def portfolio_allows(config: dict, pair: str, side: str, dbs: list[Path] | None = None) -> bool:
+def make_corr_fn(dp, config: dict, timeframe: str, lookback: int = 720):
+    """
+    Hàm corr(coin_a, coin_b) = tương quan lợi nhuận log của `lookback` nến gần nhất (khớp theo thời gian),
+    lấy từ dữ liệu bot đang có (dp). Không có dữ liệu -> None.
+    """
+    import numpy as np
+    import pandas as pd
+
+    stake = config.get("stake_currency", "USDT")
+    suffix = f":{stake}" if config.get("trading_mode") == "futures" else ""
+    cache: dict[str, pd.Series | None] = {}
+
+    def returns(coin: str):
+        if coin not in cache:
+            try:
+                df = dp.get_pair_dataframe(f"{coin}/{stake}{suffix}", timeframe)
+                cache[coin] = None if df is None or df.empty else \
+                    np.log(df.set_index("date")["close"]).diff().tail(lookback)
+            except Exception:
+                cache[coin] = None
+        return cache[coin]
+
+    def corr(a: str, b: str):
+        ra, rb = returns(a), returns(b)
+        if ra is None or rb is None:
+            return None
+        c = pd.concat([ra, rb], axis=1, join="inner").dropna()
+        return float(c.iloc[:, 0].corr(c.iloc[:, 1])) if len(c) >= 48 else None
+
+    return corr
+
+
+def portfolio_allows(config: dict, pair: str, side: str, dbs: list[Path] | None = None,
+                     corr_fn=None) -> bool:
+    """
+    Thêm "max_correlated_open" (0 = tắt): tối đa N lệnh CÙNG HƯỚNG trên các coin tương quan cao
+    (≥ "corr_threshold", mặc định 0.8). BTC/ETH/SOL/BNB thường tương quan 0.8–0.9 -> 3 lệnh Short cùng lúc
+    thực chất là 1 cược x3 rủi ro. Không tính được tương quan (thiếu dữ liệu) -> coi như tương quan (an toàn).
+    """
     q = config.get("quant", {})
     max_total = int(q.get("max_total_open", 0) or 0)
     one_per_pair = bool(q.get("one_bot_per_pair", False))
-    if not max_total and not one_per_pair:
+    max_corr = int(q.get("max_correlated_open", 0) or 0)
+    threshold = float(q.get("corr_threshold", 0.8))
+    if not max_total and not one_per_pair and not max_corr:
         return True
     want_short = side == "short"
     coin = pair.split("/")[0]
@@ -67,6 +107,18 @@ def portfolio_allows(config: dict, pair: str, side: str, dbs: list[Path] | None 
         holder = next(db for c, _, db in same_dir if c == coin)
         logger.info("Chặn lệnh %s %s: %s đã được giữ %s ở %s (one_bot_per_pair)", word, pair, coin, word, holder)
         return False
+    if max_corr:
+        linked = []
+        for c, _, _ in same_dir:
+            if c == coin:
+                continue
+            r = corr_fn(coin, c) if corr_fn else None
+            if r is None or r >= threshold:
+                linked.append(f"{c} {'?' if r is None else f'{r:.2f}'}")
+        if len(linked) >= max_corr:
+            logger.info("Chặn lệnh %s %s: đã có %d lệnh %s trên coin tương quan cao (%s) — max_correlated_open = %d",
+                        word, pair, len(linked), word, ", ".join(linked), max_corr)
+            return False
     return True
 
 
@@ -145,6 +197,11 @@ class QuantRiskMixin:
              "stop_duration_candles": 24, "max_allowed_drawdown": 0.15},
         ]
 
+    def bot_start(self, **kwargs) -> None:
+        from quant_core.logfilter import install_log_dedup
+
+        install_log_dedup()                        # gộp cảnh báo lặp lại khi mất mạng (log khỏi phình)
+
     def _risk_pct(self) -> float:
         qcfg = self.config.get("quant", {})
         risk = float(qcfg.get("risk_pct", self.default_risk_pct))
@@ -187,6 +244,7 @@ class QuantRiskMixin:
     def confirm_trade_entry(self, pair: str, order_type: str, amount: float, rate: float,
                             time_in_force: str, current_time: datetime, entry_tag: str | None,
                             side: str, **kwargs) -> bool:
-        if self.dp.runmode.value in ("live", "dry_run") and not portfolio_allows(self.config, pair, side):
+        if self.dp.runmode.value in ("live", "dry_run") and not portfolio_allows(
+                self.config, pair, side, corr_fn=make_corr_fn(self.dp, self.config, self.timeframe)):
             return False
         return self._news_allows(pair, side)

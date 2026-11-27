@@ -21,7 +21,9 @@
         "max_leverage": 5,
         "capital": {"total_usdt": 1000, "split": {"futures": 1.0}},
         "max_total_open": 4,
-        "one_bot_per_pair": true
+        "one_bot_per_pair": true,
+        "max_correlated_open": 2,
+        "corr_threshold": 0.8
     },
     "order_types": {
         "entry": "limit",
