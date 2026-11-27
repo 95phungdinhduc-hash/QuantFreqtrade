@@ -573,6 +573,7 @@ function boot() {
     if (!document.hidden && Date.now() - st.updated > 30_000) refresh();
   });
   addEventListener('online', () => refresh());
+  addEventListener('hashchange', () => { const v = location.hash.slice(1) || 'home'; if (v !== current) show(v, { push: false }); });
   restoreCache();
   render();
   show(location.hash.slice(1) || 'home', { push: false });
