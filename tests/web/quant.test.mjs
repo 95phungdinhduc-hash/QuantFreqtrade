@@ -1,9 +1,9 @@
-// Kiểm tra web/js/quant.js cho ra cùng kết quả với bản Python (fixture do tools/make_web_fixture.py tạo).
+// Kiểm tra docs/js/indicators.js cho ra cùng kết quả với bản Python (fixture do tools/make_web_fixture.py tạo).
 // Chạy: node --test tests/web
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addIndicators, adfPvalue, mackinnonP, planPosition, pickSignal, buildPlan, btcRegime, marketAllows } from '../../docs/js/quant.js';
+import { addIndicators, adfPvalue, mackinnonP, planPosition, pickSignal, buildPlan, btcRegime, marketAllows } from '../../docs/js/indicators.js';
 
 const fx = JSON.parse(readFileSync(new URL('./fixture.json', import.meta.url)));
 

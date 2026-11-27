@@ -1,6 +1,6 @@
 /* Lil_Duck Quant — web app. Mọi tính toán chạy ngay trên máy bạn từ dữ liệu công khai của Binance.
    Không có bot, không có khoá API, không gửi dữ liệu đi đâu. Cài đặt chỉ lưu trên thiết bị này. */
-import * as Q from './quant.js';
+import * as Q from './indicators.js';
 import * as API from './api.js';
 import { initFx, countUp, snapshot, flashChanges, reduce } from './fx.js';
 

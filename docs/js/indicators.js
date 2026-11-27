@@ -1,5 +1,6 @@
 /* Lõi tính toán — bản JavaScript của quant_core (indicators.py, risk.py) và alert_bot.pick_signal.
-   Chạy được cả trong trình duyệt lẫn Node (web/tests kiểm tra khớp số với bản Python).
+   Chạy được cả trong trình duyệt lẫn Node (tests/web kiểm tra khớp số với bản Python).
+   KHÔNG đặt tên file là quant.js: bộ lọc EasyPrivacy (uBlock, AdGuard…) chặn mọi URL "/quant.js" -> app trắng trang.
    Không nhìn trước tương lai: giá trị tại nến i chỉ dùng dữ liệu tới nến i. */
 
 export const ADF_THRESHOLD = 0.20;           // ADF p < 0.20 -> đi ngang

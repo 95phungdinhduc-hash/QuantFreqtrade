@@ -1,5 +1,5 @@
 """
-Tạo dữ liệu mẫu để kiểm tra web app (docs/js/quant.js) cho ra ĐÚNG số giống bản Python.
+Tạo dữ liệu mẫu để kiểm tra web app (docs/js/indicators.js) cho ra ĐÚNG số giống bản Python.
 
 Chạy:  .venv/bin/python tools/make_web_fixture.py     -> ghi tests/web/fixture.json
 Sau đó: node --test tests/web
