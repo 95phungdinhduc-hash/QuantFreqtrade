@@ -401,7 +401,7 @@ Cách dùng: ./run.sh <lệnh> [tham số thêm cho freqtrade]
     dryrun-dca         Bot chiến lược Smart DCA (tích luỹ từng phần), API cổng 8083
                        muốn có Telegram (khi KHÔNG chạy bot Spot chính): STRATEGY_TELEGRAM=true ./run.sh dryrun-dca
     dashboard          Dashboard Streamlit nâng cấp ở http://localhost:8502
-    alert              Bot cảnh báo Telegram + Gemini AI (bản nâng cấp của 4_alert_bot.py)
+    alert              Bot cảnh báo Telegram + Gemini AI (+ tóm tắt 4 coin mỗi sáng 8:00)
                        thêm --legacy để báo tín hiệu y hệt bản gốc, --once để quét 1 lần
     ui                 Cài giao diện web FreqUI (chạy 1 lần)
 

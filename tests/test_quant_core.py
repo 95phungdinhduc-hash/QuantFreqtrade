@@ -229,3 +229,51 @@ def test_log_dedup_filter():
     t[0] = 601
     r = rec("Could not fetch BTC/USDT 1h, retry 9")
     assert f.filter(r) and "lặp lại 500 lần" in r.getMessage()            # hết cửa sổ: ghi kèm tổng kết
+
+
+def test_alert_morning_summary(tmp_path, monkeypatch):
+    import sys
+    from datetime import datetime
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "alert_bot"))
+    import alert_bot as ab
+
+    down = {"up": False, "gap": -15.8}
+    rows = [
+        {"sym": "BTC/USDT", "status": "none", "price": 59916.6, "z": -0.89, "gap": 0.41, "adf": 0.08, "chg24": -1.2},
+        {"sym": "ETH/USDT", "status": "sent", "price": 1743.6, "z": 2.21, "gap": 0.66, "adf": 0.17, "chg24": 2.0,
+         "side": "SHORT", "strategy": "🔄 MEAN REVERSION"},
+        {"sym": "SOL/USDT", "status": "blocked", "price": 71.6, "z": 0.3, "gap": 1.9, "adf": 0.4, "chg24": 0.5,
+         "side": "LONG", "strategy": "🚀 TREND FOLLOWING"},
+        {"sym": "BNB/USDT", "status": "none", "price": 552.5, "z": 1.0, "gap": -1.3, "adf": 0.3, "chg24": None},
+        {"sym": "XRP/USDT", "status": "error"},
+    ]
+    now = 1_000_000.0
+    sent = [[now - 3600, "ETH/USDT", "SHORT"], [now - 7200, "ETH/USDT", "SHORT"], [now - 30 * 3600, "SOL/USDT", "SHORT"]]
+    msg = ab.build_summary(rows, down, "1h", sent, now=now)
+    lines = msg.splitlines()
+    btc = next(i for i, l in enumerate(lines) if "*BTC*" in l)
+    assert lines[btc].startswith("⚪") and "(-1.2% 24h)" in lines[btc]
+    assert "Đi ngang" in lines[btc + 1] and "Z ≥ +2" in lines[btc + 1] and "SHORT" in lines[btc + 1]  # thị trường giảm -> chờ Short
+    assert any(l.startswith("🔔 *ETH*") for l in lines) and "bị bộ lọc" in msg
+    bnb = next(i for i, l in enumerate(lines) if "*BNB*" in l)
+    assert lines[bnb].startswith("🟡") and "24h" not in lines[bnb]          # gap -1.3% ≥ 75% của 1.5% -> gần tới
+    assert "Có xu hướng" in lines[bnb + 1] and "gap ≤ −1.5%" in lines[bnb + 1]
+    assert "XRP* — không lấy được" in msg
+    assert "BTC 0 · ETH 2 · SOL 0 · BNB 0" in msg                           # SOL 30 giờ trước không tính
+
+    # chỉ gửi 1 lần/ngày, từ 8:00 tới trước 12:00; tắt bằng -1
+    st = {"summary_date": "2026-11-27"}
+    assert ab.summary_due(datetime(2026, 11, 28, 8, 5), st, 8)
+    assert not ab.summary_due(datetime(2026, 11, 27, 9, 0), st, 8)
+    assert not ab.summary_due(datetime(2026, 11, 28, 7, 59), st, 8)
+    assert not ab.summary_due(datetime(2026, 11, 28, 12, 0), st, 8)
+    assert not ab.summary_due(datetime(2026, 11, 28, 8, 5), st, -1)
+
+    monkeypatch.setattr(ab, "STATE_FILE", tmp_path / "state.json")
+    out = []
+    monkeypatch.setattr(ab, "send_telegram", out.append)
+    ab.record_signal("ETH/USDT", "SHORT")
+    assert ab.maybe_send_summary(rows, down, "1h", 8, force=True) and "ETH 1" in out[0]
+    assert ab.load_state()["summary_date"] == datetime.now(ab.market_context.VN_TZ).strftime("%Y-%m-%d")

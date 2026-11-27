@@ -8,15 +8,18 @@ Thay đổi so với bản gốc:
   * Chống spam: cùng 1 tín hiệu chỉ gửi lại sau `cooldown` phút
   * Báo kèm trạng thái bot Freqtrade (nếu đang chạy): đang giữ lệnh cặp này hay không
   * SDK Gemini mới (google-genai). Không có key -> chạy thuần toán học
+  * Mỗi sáng 8:00 (giờ VN) gửi 1 tin tóm tắt CẢ 4 coin, kể cả khi không có tín hiệu
 
 Chạy:  ./run.sh alert            (quét mỗi 5 phút)
        ./run.sh alert --once     (quét 1 lần rồi thoát — để thử)
+       ./run.sh alert --summary-now   (gửi tin tóm tắt ngay để xem thử)
        ./run.sh alert --legacy   (báo tín hiệu y hệt bản gốc: không lọc ADF, SL 1.2σ/1.5σ)
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from datetime import datetime
@@ -188,14 +191,18 @@ def regime_line(regime: dict | None) -> str:
 
 
 def scan(symbols: list[str], timeframe: str, window: int, cooldown_min: int,
-         legacy: bool = False, use_market_filter: bool = True) -> None:
+         legacy: bool = False, use_market_filter: bool = True) -> tuple[dict | None, list[dict]]:
+    """Quét 1 vòng. Trả về (thị trường chung, [trạng thái từng coin]) cho tin tóm tắt buổi sáng."""
     capital, risk_pct = settings.get_user_settings()
     regime = market_context.btc_regime() if use_market_filter else None
     mkt = ("" if regime is None else
            f" | Thị trường: BTC {'trên' if regime['up'] else 'dưới'} SMA200 ({regime['gap']:+.1f}%)")
     print(f"[{datetime.now():%H:%M:%S}] Quét thị trường | Vốn ${capital:,.2f} | Rủi ro {risk_pct}%"
           f"{' | chế độ GỐC (--legacy)' if legacy else ''}{mkt}")
+    rows: list[dict] = []
     for sym in symbols:
+        row = {"sym": sym, "status": "error"}
+        rows.append(row)
         try:
             df = add_quant_indicators(fetch_live_ohlcv(sym, timeframe, limit=300, market_type="futures"),
                                       window=window)
@@ -204,12 +211,18 @@ def scan(symbols: list[str], timeframe: str, window: int, cooldown_min: int,
             min_not = min_notional(sym)
             print(f"  -> {sym}: ${price:,.2f} | Z={z:.2f}σ | EMA gap={gap:.2f}% | ADF={adf:.3f}"
                   f" | Min=${min_not:.1f}")
+            back = 1440 // TF_MINUTES.get(timeframe, 60)
+            chg = float(price / df["close"].iloc[-1 - back] - 1) * 100 if len(df) > back else None
+            row.update(price=float(price), z=float(z), gap=float(gap), adf=float(adf), chg24=chg,
+                       status="none", legacy=legacy)
 
             sig = pick_signal(r, legacy)
             if sig is None:
                 continue
             strategy, is_long, strong, sl_mult, tp_mult, use_mean, leverage = sig
+            row.update(side="LONG" if is_long else "SHORT", strategy=strategy)
             if not market_allows(is_long, regime):
+                row["status"] = "blocked"
                 print(f"     (tín hiệu {'LONG' if is_long else 'SHORT'} bị bộ lọc thị trường chặn, giống các bot)")
                 continue
             mean = r["rolling_mean"] if use_mean else None
@@ -222,6 +235,7 @@ def scan(symbols: list[str], timeframe: str, window: int, cooldown_min: int,
 
             key = f"{sym}|{strategy}|{is_long}"
             if time.time() - _last_sent.get(key, 0) < cooldown_min * 60:
+                row["status"] = "sent"
                 print("     (đã báo gần đây, bỏ qua)")
                 continue
 
@@ -257,8 +271,110 @@ def scan(symbols: list[str], timeframe: str, window: int, cooldown_min: int,
                                                fee_2way, risk_note)
             send_telegram(msg)
             _last_sent[key] = time.time()
+            row["status"] = "sent"
+            record_signal(sym, row["side"])
         except Exception as e:
             print(f"  [!] Lỗi {sym}: {e}")
+    return regime, rows
+
+
+# ------------------------------------------------------------------ tin tóm tắt buổi sáng
+# Mỗi sáng (mặc định 8:00 giờ VN) gửi 1 tin tóm tắt CẢ 4 coin, kể cả khi không có tín hiệu: giá,
+# % thay đổi 24h, coin đang đi ngang hay có xu hướng, còn cách điều kiện báo tín hiệu bao xa.
+# Máy ngủ lúc 8:00 -> gửi ở lần quét đầu tiên sau đó (trước 12:00). Mỗi ngày chỉ gửi 1 lần (nhớ trong file).
+STATE_FILE = ROOT / "logs" / "alert_state.json"
+SUMMARY_LATEST_HOUR = 12
+TF_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
+
+
+def load_state() -> dict:
+    try:
+        return json.loads(STATE_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def save_state(state: dict) -> None:
+    try:
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        STATE_FILE.write_text(json.dumps(state, ensure_ascii=False))
+    except Exception as e:
+        print(f"  [!] Không ghi được {STATE_FILE.name}: {e}")
+
+
+def record_signal(sym: str, side: str, now: float | None = None) -> None:
+    """Ghi lại tín hiệu đã gửi (giữ 48 giờ) để tin tóm tắt đếm được '24 giờ qua đã báo mấy lần'."""
+    now = time.time() if now is None else now
+    state = load_state()
+    state["sent"] = [x for x in state.get("sent", []) if now - x[0] < 48 * 3600] + [[now, sym, side]]
+    save_state(state)
+
+
+def summary_due(now_vn: datetime, state: dict, hour: int) -> bool:
+    return hour >= 0 and hour <= now_vn.hour < max(hour + 1, SUMMARY_LATEST_HOUR) \
+        and state.get("summary_date") != now_vn.strftime("%Y-%m-%d")
+
+
+def coin_line(row: dict, regime: dict | None) -> str:
+    """1 coin: giá, % 24h và còn cách điều kiện báo tín hiệu bao xa (nói bằng lời)."""
+    base = row["sym"].split("/")[0]
+    if row.get("status") == "error" or "z" not in row:
+        return f"⚪ *{base}* — không lấy được dữ liệu lần quét này"
+    chg = "" if row.get("chg24") is None else f" ({row['chg24']:+.1f}% 24h)"
+    head = f"*{base}* `{fmt_price(row['price'])}`{chg}"
+    z, gap, adf = row["z"], row["gap"], row["adf"]
+    only = None if regime is None else ("LONG" if regime["up"] else "SHORT")
+    if row["status"] == "sent":
+        return f"🔔 {head}\n    Đang có tín hiệu *{row['side']}* ({row['strategy']}) — đã gửi riêng"
+    if row["status"] == "blocked":
+        return (f"⛔ {head}\n    Có tín hiệu {row['side']} nhưng bị bộ lọc thị trường chặn "
+                f"(đang chỉ báo {only})")
+    if row.get("legacy"):
+        return f"⚪ {head}\n    Chưa có tín hiệu · Z `{z:+.2f}σ` · EMA gap `{gap:+.2f}%`"
+    if adf < ADF_THRESHOLD:            # đi ngang -> chờ giá lệch xa trung bình (Mean Reversion)
+        want = {"LONG": (f"Z ≤ −{MODERATE_Z:g}", -z), "SHORT": (f"Z ≥ +{MODERATE_Z:g}", z)}
+        need, val = want[only] if only else (f"|Z| ≥ {MODERATE_Z:g}", abs(z))
+        mode, now_txt = "Đi ngang", f"Z `{z:+.2f}σ`"
+        lim = MODERATE_Z
+    else:                               # có xu hướng -> chờ 2 đường EMA tách xa (Trend Following)
+        want = {"LONG": (f"gap ≥ +{MODERATE_GAP:g}%", gap), "SHORT": (f"gap ≤ −{MODERATE_GAP:g}%", -gap)}
+        need, val = want[only] if only else (f"|gap| ≥ {MODERATE_GAP:g}%", abs(gap))
+        mode, now_txt = "Có xu hướng", f"EMA gap `{gap:+.2f}%`"
+        lim = MODERATE_GAP
+    icon = "🟡" if val >= 0.75 * lim else "⚪"
+    near = "gần tới" if icon == "🟡" else "còn xa"
+    side = f" để báo {only}" if only else ""
+    return f"{icon} {head}\n    {mode} · {now_txt} → {near} (cần {need}{side})"
+
+
+def build_summary(rows: list[dict], regime: dict | None, timeframe: str, sent: list,
+                  now: float | None = None) -> str:
+    now = time.time() if now is None else now
+    lines = [f"☀️ *TÓM TẮT BUỔI SÁNG — {len(rows)} coin ({timeframe})*", ""]
+    if regime is not None:
+        lines.append(regime_line(regime).rstrip() + "\n")
+    lines += [coin_line(r, regime) for r in rows]
+    recent: dict[str, int] = {}
+    for ts, sym, _ in sent:
+        if now - ts < 24 * 3600:
+            recent[sym.split("/")[0]] = recent.get(sym.split("/")[0], 0) + 1
+    counts = " · ".join(f"{r['sym'].split('/')[0]} {recent.get(r['sym'].split('/')[0], 0)}" for r in rows)
+    lines += ["", f"📨 Tín hiệu đã gửi 24 giờ qua: {counts}",
+              "ℹ️ ⚪ còn xa · 🟡 gần tới · 🔔 có tín hiệu · ⛔ bị bộ lọc chặn. "
+              "Không có tín hiệu = đứng ngoài, không cần làm gì."]
+    return "\n".join(lines)
+
+
+def maybe_send_summary(rows: list[dict], regime: dict | None, timeframe: str, hour: int,
+                       force: bool = False) -> bool:
+    state = load_state()
+    now_vn = datetime.now(market_context.VN_TZ)
+    if not force and not summary_due(now_vn, state, hour):
+        return False
+    send_telegram(build_summary(rows, regime, timeframe, state.get("sent", [])))
+    state["summary_date"] = now_vn.strftime("%Y-%m-%d")
+    save_state(state)
+    return True
 
 
 def main() -> None:
@@ -271,6 +387,9 @@ def main() -> None:
     ap.add_argument("--once", action="store_true", help="quét 1 lần rồi thoát")
     ap.add_argument("--legacy", action="store_true",
                     help="báo tín hiệu y hệt 4_alert_bot.py gốc (không lọc ADF)")
+    ap.add_argument("--summary-hour", type=int, default=8,
+                    help="giờ VN gửi tin tóm tắt 4 coin mỗi sáng (-1 = tắt)")
+    ap.add_argument("--summary-now", action="store_true", help="quét 1 lần, gửi tin tóm tắt ngay rồi thoát")
     ap.add_argument("--no-market-filter", action="store_true",
                     help="bỏ bộ lọc thị trường (BTC so với SMA200 ngày) — mặc định theo config.json")
     args = ap.parse_args()
@@ -281,10 +400,14 @@ def main() -> None:
           f"Telegram: {'BẬT' if settings.TELEGRAM_BOT_TOKEN else 'TẮT'} | "
           f"Bộ lọc thị trường: {'BẬT' if use_filter else 'TẮT'}")
     while True:
-        scan(args.pairs, args.timeframe, args.window, args.cooldown, legacy=args.legacy,
-             use_market_filter=use_filter)
+        regime, rows = scan(args.pairs, args.timeframe, args.window, args.cooldown, legacy=args.legacy,
+                            use_market_filter=use_filter)
+        if args.summary_now:
+            maybe_send_summary(rows, regime, args.timeframe, args.summary_hour, force=True)
+            break
         if args.once:
             break
+        maybe_send_summary(rows, regime, args.timeframe, args.summary_hour)
         print(f"✅ Xong vòng quét. Nghỉ {args.interval}s...\n")
         time.sleep(args.interval)
 
