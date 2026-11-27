@@ -1,8 +1,9 @@
 /* Service worker: cho app mở được khi mất mạng (dữ liệu giá lần cuối lưu trong máy).
-   - File của app: lấy bản mới qua mạng trước, mất mạng thì dùng bản đã lưu -> cập nhật code là thấy ngay.
+   - File của app: lấy bản mới qua mạng trước (hỏi lại GitHub bằng ETag, bỏ qua cache 10 phút của trình duyệt),
+     mất mạng thì dùng bản đã lưu -> đẩy code lên là lần mở sau thấy ngay.
    - Font + thư viện biểu đồ (CDN, đã ghim phiên bản): dùng bản đã lưu trước.
    - API giá (Binance, alternative.me): không đụng tới, luôn lấy trực tiếp. */
-const CACHE = 'duckquant-v1';
+const CACHE = 'duckquant-v2';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/quant.js', 'js/api.js', 'js/fx.js',
                'manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 const CDN = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
@@ -20,7 +21,8 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin === location.origin) {
-    e.respondWith(fetch(req).then(res => {
+    e.respondWith(fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(res => {
+      if (req.mode === 'navigate' && res.redirected) return Response.redirect(res.url, 302);   // Safari không nhận trang bị chuyển hướng từ SW
       if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match('./'))));
