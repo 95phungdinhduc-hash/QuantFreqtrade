@@ -3,9 +3,10 @@
      mất mạng thì dùng bản đã lưu -> đẩy code lên là lần mở sau thấy ngay.
    - Font + thư viện biểu đồ (CDN, đã ghim phiên bản): dùng bản đã lưu trước.
    - API giá (Binance, alternative.me): không đụng tới, luôn lấy trực tiếp. */
-const CACHE = 'duckquant-v3';
-const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/indicators.js', 'js/api.js', 'js/fx.js',
-               'manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
+const CACHE = 'duckquant-v4';
+const SHELL = ['./', 'index.html', 'css/theme.css', 'css/app.css', 'js/app.js', 'js/indicators.js', 'js/api.js', 'js/fx.js',
+               'js/ui.js', 'js/advisor.js', 'js/charts.js', 'data/snapshot.json', 'manifest.webmanifest', 'icons/icon-192.png',
+               'icons/apple-touch-icon.png'];
 const CDN = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {

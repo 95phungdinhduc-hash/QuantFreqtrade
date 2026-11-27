@@ -1,6 +1,7 @@
 /* Lấy dữ liệu công khai từ Binance + chỉ số Sợ hãi/Tham lam. Không cần khoá API, không gửi dữ liệu cá nhân. */
 
 const SPOT = 'https://data-api.binance.vision/api/v3';   // bản công khai chỉ đọc của Binance Spot
+const INTERVAL_MS = { "15m": 9e5, "1h": 36e5, "4h": 144e5, "1d": 864e5 };
 const FUT = 'https://fapi.binance.com/fapi/v1';
 
 const sym = pair => pair.replace('/', '');
@@ -61,3 +62,27 @@ export async function minNotionals() {
   return v;
 }
 export const minNotionalOf = (table, pair) => table?.[sym(pair)];
+
+/** Nến Spot ĐÃ ĐÓNG, lấy nhiều trang (Binance trả tối đa 1000 nến/lần). total: số nến muốn có */
+export async function spotHistory(pair, interval, total) {
+  const step = INTERVAL_MS[interval] || 36e5;
+  let out = [], end = Date.now();
+  while (out.length < total + 1) {
+    const need = Math.min(1000, total + 1 - out.length);
+    const raw = await getJSON(`${SPOT}/klines?symbol=${sym(pair)}&interval=${interval}&limit=${need}&endTime=${end}`);
+    const c = toCandles(raw);
+    if (!c.length) break;
+    out = c.concat(out);
+    if (c.length < need) break;
+    end = c[0].t - 1;
+  }
+  const now = Date.now();
+  return out.filter(k => k.t + step <= now).slice(-total);   // bỏ nến đang chạy
+}
+
+/** Dữ liệu do máy Mac xuất (tin tức, backtest, walk-forward) — docs/data/snapshot.json */
+export async function snapshot() {
+  const r = await fetch('data/snapshot.json', { cache: 'no-cache' });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}

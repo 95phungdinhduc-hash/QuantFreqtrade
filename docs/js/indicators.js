@@ -282,3 +282,109 @@ export function buildPlan(r, sig, { capital, riskPct, minNotional = DEFAULT_MIN_
     forcedMin: fplan.positionUsd > plan.positionUsd,
   };
 }
+
+/* ------------------------------------------------------------------ dùng cho dashboard web */
+/** log(close / close trước) — giống cột log_return */
+export const logReturns = close => close.map((c, i) => i ? Math.log(c / close[i - 1]) : NaN);
+/** % thay đổi so với nến trước — giống pct_change() */
+export const pctChange = (a, k = 1) => a.map((v, i) => i >= k ? v / a[i - k] - 1 : NaN);
+
+/** Kênh Donchian của `period` nến TRƯỚC nến hiện tại (đã shift 1) -> [đỉnh, đáy] */
+export function donchian(high, low, period = 48) {
+  const hi = new Array(high.length).fill(NaN), lo = new Array(low.length).fill(NaN);
+  for (let i = period; i < high.length; i++) {
+    let h = -Infinity, l = Infinity;
+    for (let j = i - period; j < i; j++) { if (high[j] > h) h = high[j]; if (low[j] < l) l = low[j]; }
+    hi[i] = h; lo[i] = l;
+  }
+  return [hi, lo];
+}
+
+/** Kurtosis dư (Fisher, đã hiệu chỉnh mẫu) giống pandas Series.kurtosis() */
+export function kurtosis(values) {
+  const x = values.filter(fin), n = x.length;
+  if (n < 4) return NaN;
+  const m = x.reduce((s, v) => s + v, 0) / n;
+  let s2 = 0, s4 = 0;
+  for (const v of x) { const d = (v - m) ** 2; s2 += d; s4 += d * d; }
+  if (s2 === 0) return 0;
+  return n * (n + 1) * (n - 1) / ((n - 2) * (n - 3)) * s4 / (s2 * s2) - 3 * (n - 1) ** 2 / ((n - 2) * (n - 3));
+}
+
+/** Phân vị kiểu numpy (nội suy tuyến tính), q từ 0..100 */
+export function percentile(values, q) {
+  const x = values.filter(fin).sort((a, b) => a - b);
+  if (!x.length) return NaN;
+  const pos = (x.length - 1) * q / 100, lo = Math.floor(pos), hi = Math.ceil(pos);
+  return x[lo] + (x[hi] - x[lo]) * (pos - lo);
+}
+
+/** (VaR, CVaR) lịch sử giống risk.value_at_risk. Giá trị âm, -0.012 = -1.2% mỗi nến */
+export function valueAtRisk(returns, level = 0.95) {
+  const r = returns.filter(fin);
+  if (!r.length) return [NaN, NaN];
+  const v = percentile(r, (1 - level) * 100);
+  const tail = r.filter(x => x <= v);
+  return [v, tail.length ? tail.reduce((s, x) => s + x, 0) / tail.length : v];
+}
+
+/** Hệ số tương quan Pearson trên các cặp giá trị cùng có số */
+export function corr(a, b) {
+  let n = 0, sa = 0, sb = 0;
+  for (let i = 0; i < a.length; i++) if (fin(a[i]) && fin(b[i])) { n++; sa += a[i]; sb += b[i]; }
+  if (n < 3) return NaN;
+  const ma = sa / n, mb = sb / n;
+  let cov = 0, va = 0, vb = 0;
+  for (let i = 0; i < a.length; i++) if (fin(a[i]) && fin(b[i])) {
+    cov += (a[i] - ma) * (b[i] - mb); va += (a[i] - ma) ** 2; vb += (b[i] - mb) ** 2;
+  }
+  return cov / Math.sqrt(va * vb);
+}
+
+/** Tín hiệu dạng thẻ cho trang Tổng quan — giống dashboard signal_of() */
+export function signalOf(r) {
+  const z = r.z, adf = r.adf, gap = r.gap;
+  if (fin(adf) && adf < ADF_THRESHOLD) {
+    const base = { strat: 'Mean Reversion · thị trường đi ngang', mr: true };
+    if (z <= -Z_ENTRY) return { ...base, kind: 'long', label: 'Long', act: true, isLong: true,
+      why: `Giá đang <b>quá bán</b> (Z = ${sgn(z)}σ) trong vùng đi ngang (ADF ${adf.toFixed(2)}) → kỳ vọng hồi về trung bình.` };
+    if (z >= Z_ENTRY) return { ...base, kind: 'short', label: 'Short', act: true, isLong: false,
+      why: `Giá đang <b>quá mua</b> (Z = ${sgn(z)}σ) trong vùng đi ngang → Spot: cân nhắc chốt lời · Futures: Short.` };
+    return { ...base, kind: 'wait', label: 'Chờ', act: false, progress: Math.abs(z) / Z_ENTRY,
+      need: `Z cần chạm ±${Z_ENTRY.toFixed(1)}σ`, now: `hiện ${sgn(z)}σ`,
+      why: `Thị trường <b>đi ngang</b> (ADF ${adf.toFixed(2)}). Chờ giá lệch đủ xa khỏi trung bình.` };
+  }
+  const base = { strat: 'Trend Following · thị trường có xu hướng', mr: false };
+  if (gap > TREND_GAP) return { ...base, kind: 'long', label: 'Xu hướng tăng', act: true, isLong: true,
+    why: `EMA20 cao hơn EMA50 <b>${gap.toFixed(2)}%</b> → đánh thuận xu hướng tăng.` };
+  if (gap < -TREND_GAP) return { ...base, kind: 'short', label: 'Xu hướng giảm', act: true, isLong: false,
+    why: `EMA20 thấp hơn EMA50 <b>${Math.abs(gap).toFixed(2)}%</b> → đứng ngoài Spot, Futures có thể Short.` };
+  return { ...base, kind: 'wait', label: 'Đứng ngoài', act: false, progress: Math.abs(gap) / TREND_GAP,
+    need: `EMA lệch cần ±${TREND_GAP.toFixed(1)}%`, now: `hiện ${sgn(gap)}%`,
+    why: `Có xu hướng (ADF ${fin(adf) ? adf.toFixed(2) : '—'}) nhưng EMA20/50 chưa tách ra đủ rõ.` };
+}
+const sgn = v => (v >= 0 ? '+' : '') + v.toFixed(2);
+
+/** Khuyến nghị 1 dòng cho Screener — giống dashboard regime_signal() */
+export function regimeSignal(r) {
+  if (fin(r.adf) && r.adf < ADF_THRESHOLD) {
+    if (r.z <= -Z_ENTRY) return '🟢 MUA — Mean Reversion (đi ngang + quá bán)';
+    if (r.z >= Z_ENTRY) return '🔴 BÁN/SHORT — Mean Reversion (đi ngang + quá mua)';
+    return '⚪ Đi ngang — chờ Z-Score chạm ±2';
+  }
+  if (r.gap > TREND_GAP) return '🚀 Xu hướng TĂNG — ưu tiên Long';
+  if (r.gap < -TREND_GAP) return '🔻 Xu hướng GIẢM — đứng ngoài Spot / Short Futures';
+  return '⚪ Đứng ngoài — chưa rõ xu hướng';
+}
+
+/** Điểm vào lệnh Mean Reversion trong quá khứ (đi ngang + Z vượt ±2 rồi quay đầu) -> [mua[], bán[]] (chỉ số nến) */
+export function signalMarkers(rows) {
+  const buy = [], sell = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i], zp = rows[i - 1].z;
+    if (!(r.adf < ADF_THRESHOLD)) continue;
+    if (zp < -Z_ENTRY && r.z > zp) buy.push(i);
+    if (zp > Z_ENTRY && r.z < zp) sell.push(i);
+  }
+  return [buy, sell];
+}

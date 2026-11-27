@@ -107,6 +107,49 @@ def main() -> None:
                                "out": None if sig is None else [sig[0], bool(sig[1]), bool(sig[2]), sig[3],
                                                                  sig[4], sig[5], sig[6]]})
 
+    # --- tab 🧭 Tư vấn (advisor.py) + kurtosis / VaR của tab Phân tích, Vốn & Rủi ro
+    from quant_core import advisor
+    from quant_core.risk import value_at_risk
+
+    out["advisor"] = []
+    items = []
+    for seed, kind, news in ((11, "trend", 2), (12, "range", -5), (13, "down", 0), (14, "walk", 7)):
+        rng = np.random.default_rng(seed)
+        n = 999
+        if kind == "down":
+            close = 3000 * np.exp(np.cumsum(rng.normal(-0.0012, 0.007, n)))
+        else:
+            close = series(seed, n, kind)["close"].to_numpy()
+        df = pd.DataFrame({"date": pd.date_range(pd.Timestamp("2026-09-01", tz="UTC"), periods=n, freq="1h"),
+                           "open": close * (1 + rng.normal(0, 0.001, n)),
+                           "high": close * (1 + np.abs(rng.normal(0, 0.004, n))),
+                           "low": close * (1 - np.abs(rng.normal(0, 0.004, n))), "close": close,
+                           "volume": rng.uniform(1, 10, n)})
+        d = advisor.enrich(df)
+        for prof, fut in (("can_bang", True), ("than_trong", False)):
+            a = advisor.assess(f"{kind.upper()}/USDT", d, news, 1000.0, advisor.PROFILES[prof]["risk_pct"], fut)
+            if prof == "can_bang":
+                items.append(a)
+            p = a.plan
+            out["advisor"].append({
+                "kind": kind, "news": news, "profile": prof, "futures": fut,
+                "candles": [{"t": int(t.timestamp() * 1000), "o": o, "h": h, "l": lo, "c": c, "v": v}
+                            for t, o, h, lo, c, v in df[["date", "open", "high", "low", "close", "volume"]].itertuples(index=False)]
+                if prof == "can_bang" else None,
+                "tail": [{k: f(r[c]) for k, c in (("emaSlow4h", "ema_slow_4h"), ("roc7d", "roc_7d"), ("volAnn", "vol_ann"),
+                                                   ("volPct", "vol_pct"), ("dcHigh", "dc_high"), ("ema200", "ema200"))}
+                         for _, r in d.tail(60).iterrows()],
+                "out": {"regime": a.regime, "stance": a.stance, "kind": a.kind, "playbook": a.playbook, "score": a.score,
+                        "factors": a.factors, "zone": a.zone, "reasons": a.reasons,
+                        "plan": None if p is None else {"stopLoss": p.stop_loss, "takeProfit": p.take_profit,
+                                                        "positionUsd": p.position_usd, "riskUsd": p.risk_usd}},
+                "kurtosis": f(d["log_return"].kurtosis()),
+                "var": list(value_at_risk(d["close"].pct_change())),
+            })
+    alloc = advisor.allocate(items, "mao_hiem", 1000.0)
+    out["allocate"] = [{"asset": r["Tài sản"], "weight": r["Tỷ trọng"], "usdt": r["USDT"]} for _, r in alloc.iterrows()]
+    out["mood"] = list(advisor.mood([a.score for a in items]))
+
     dst = ROOT / "tests" / "web" / "fixture.json"
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(json.dumps(out, ensure_ascii=False))

@@ -376,6 +376,7 @@ Cách dùng: ./run.sh <lệnh> [tham số thêm cho freqtrade]
     import             Chuyển dữ liệu từ ../QuantTradingSystem/quant_data.db (chỉ đọc)
     download [ngày]    Tải nến Spot mới từ Binance (mặc định 365 ngày, 15m + 1h + 4h)
     download-futures [ngày]  Tải nến Futures + funding rate (cho backtest-futures)
+    web-data [push]    Xuất tin tức + backtest cho bản web (docs/data); thêm 'push' để đưa lên GitHub Pages
 
   NGHIÊN CỨU
     backtest           Backtest so sánh QuantZScoreStrategy (gốc) vs QuantHybridStrategy (nâng cấp)
@@ -423,6 +424,15 @@ main() {
         test)      "$PY" -m pytest -q tests "$@"
                    if command -v node >/dev/null; then node --test tests/web/; else echo "(bỏ qua kiểm thử web app: chưa cài Node)"; fi ;;
         import)    "$PY" tools/import_legacy_db.py "$@" ;;
+        web-data)
+          "$PY" tools/export_web_data.py || exit 1
+          if [[ "${1:-}" == push ]]; then
+            git add docs/data/snapshot.json docs/css/theme.css docs/js/fx.js
+            if git diff --cached --quiet; then echo "Không có gì mới để đưa lên."
+            else git commit -q -m "web: cập nhật dữ liệu tin tức + backtest" && git push -q && echo "Đã đưa lên GitHub — trang web cập nhật sau ~1 phút."; fi
+          else
+            echo "Xem thử xong thì chạy: ./run.sh web-data push"
+          fi ;;
         download)
           local days="${1:-365}"; shift || true
           "$FT" download-data -c "$CFG" --days "$days" -t 15m 1h 4h 1d "$@" ;;

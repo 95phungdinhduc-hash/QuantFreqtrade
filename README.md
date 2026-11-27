@@ -4,12 +4,13 @@
 
 > 📱 **Web app (mở trên điện thoại, không cần Mac):** https://95phungdinhduc-hash.github.io/QuantFreqtrade/
 >
-> App gồm tín hiệu Spot/Futures có SL/TP, biểu đồ Z-Score, máy tính khối lượng và chỉ số Sợ hãi & Tham lam.
-> Mọi phép tính chạy ngay trên máy bạn từ giá công khai của Binance. Logic giống alert bot, có kiểm thử khớp số với bản Python.
-> Không có bot và không có khoá API.
+> Bản web của dashboard: cùng sidebar, cùng 8 tab (Tổng quan, Tư vấn, Phân tích, Screener, Vốn & Rủi ro, Tin tức, Bot, Backtest)
+> và cùng giao diện Aurora Glass. Mọi phép tính chạy ngay trên máy bạn từ giá công khai của Binance, có kiểm thử khớp số với bản Python.
+> Không có bot và không có khoá API. Tab Tin tức và Backtest dùng dữ liệu do Mac xuất ra (`./run.sh web-data push`).
 >
 > - Cài như app: Safari → Chia sẻ → *Thêm vào Màn hình chính*.
 > - Mã nguồn ở `docs/`. GitHub Pages đăng thẳng thư mục này từ nhánh `main`, đẩy code lên là trang tự cập nhật sau khoảng 1 phút.
+> - `docs/css/theme.css` và `docs/js/fx.js` là bản chép của `dashboard/` — sửa giao diện ở `dashboard/` rồi chạy `./run.sh web-data` để đồng bộ.
 > - Đổi logic tín hiệu trong `quant_core` thì chạy `.venv/bin/python tools/make_web_fixture.py`, rồi `./run.sh test` để kiểm tra bản JS vẫn khớp số.
 
 > 🆕 **Mới:** 2 chiến lược `QuantBreakoutStrategy` (mua theo đà) và `QuantSmartDCAStrategy` (tích luỹ từng phần),

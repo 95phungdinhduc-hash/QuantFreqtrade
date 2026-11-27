@@ -1,7 +1,7 @@
 {
   "name": "Lil_Duck Quant",
   "short_name": "Duck Quant",
-  "description": "Tín hiệu crypto bằng thống kê — Z-Score, EMA, ADF, cắt lỗ/chốt lời theo % rủi ro.",
+  "description": "Dashboard giao dịch crypto bằng thống kê — tư vấn, phân tích Z-Score/EMA/ADF, screener, máy tính vốn.",
   "lang": "vi",
   "start_url": "./",
   "scope": "./",
@@ -9,14 +9,40 @@
   "orientation": "portrait",
   "background_color": "#05070d",
   "theme_color": "#05070d",
-  "categories": ["finance", "productivity"],
+  "categories": [
+    "finance",
+    "productivity"
+  ],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Tín hiệu", "url": "./#signals" },
-    { "name": "Biểu đồ", "url": "./#chart" }
+    {
+      "name": "Tư vấn",
+      "url": "./#advisor"
+    },
+    {
+      "name": "Phân tích",
+      "url": "./#analysis"
+    },
+    {
+      "name": "Screener",
+      "url": "./#screener"
+    }
   ]
 }
