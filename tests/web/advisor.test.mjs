@@ -47,3 +47,9 @@ test('Phân bổ vốn + nhiệt kế khớp advisor.allocate / mood', () => {
   alloc.forEach((r, i) => { assert.equal(r.asset, fx.allocate[i].asset); close(r.weight, fx.allocate[i].weight, 1e-9, 1e-12, 'weight'); });
   assert.deepEqual(mood(items.map(a => a.score)), fx.mood);
 });
+
+import { scoreText, newsSentiment } from '../../docs/js/api.js';
+test('Chấm điểm tin tức khớp market_context.score_text', () => {
+  for (const { text, score } of fx.news_scores) assert.equal(scoreText(text), score, text);
+  assert.equal(newsSentiment([{ score: 3 }, { score: -1 }, { score: 0 }, { score: -2 }]), -1);
+});

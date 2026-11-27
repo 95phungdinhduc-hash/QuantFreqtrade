@@ -150,6 +150,15 @@ def main() -> None:
     out["allocate"] = [{"asset": r["Tài sản"], "weight": r["Tỷ trọng"], "usdt": r["USDT"]} for _, r in alloc.iterrows()]
     out["mood"] = list(advisor.mood([a.score for a in items]))
 
+    # --- chấm điểm tin tức (market_context.score_text)
+    from quant_core.market_context import score_text
+    texts = ["Bitcoin surges to record high as ETF approvals rally markets",
+             "Security breach: exchange hacked, SEC lawsuit follows; prices plunge below support",
+             "Banks ban crypto? Fear drops as CPI inflation cools", "Ethereum dumps, bears in control, rallying fails",
+             "Lowest volume since 2020; highs and lows", "<p><img src=\"https://x.io/red-graphs-falling.png\"> Market falls</p>",
+             "Upgrade adoption soared; buyers jumped in, gains everywhere", "Nothing to see here", "SEC's ETF decision, BTC/USDT 60k"]
+    out["news_scores"] = [{"text": t, "score": score_text(t)} for t in texts]
+
     dst = ROOT / "tests" / "web" / "fixture.json"
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(json.dumps(out, ensure_ascii=False))

@@ -164,7 +164,16 @@ function assetPair() {
   if (!ok.includes(S.asset)) S.asset = ok.includes('BTC/USDT|1h') ? 'BTC/USDT|1h' : ok[0];
   return S.asset.split('|');
 }
-const newsScore = () => snap()?.news_score ?? 0;
+/** Tin tức: tự lấy trực tiếp mỗi 5 phút (giống dashboard); lỗi mạng thì dùng tin do Mac xuất trong snapshot */
+function news() {
+  const live = need('news', () => API.liveNews(), 5 * 60e3);
+  if (live?.length) return { items: live, score: API.newsSentiment(live), at: cache.get('news')?.at, live: true };
+  const s = snap();
+  if (s?.news?.length) return { items: s.news, score: s.news_score ?? API.newsSentiment(s.news), at: Date.parse(s.generated), live: false };
+  return null;
+}
+const newsScore = () => news()?.score ?? 0;
+const newsWhen = n => n?.at ? (n.live ? `cập nhật ${U.vnTime(n.at)}` : `tin do Mac xuất lúc ${U.vnDate(n.at)}`) : '';
 const labelFor = s => s > 0 ? '🟢 Tích cực (Bullish)' : s < 0 ? '🔴 Tiêu cực (Bearish)' : '⚪ Trung lập (Neutral)';
 function session() {
   const h = +new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }) % 24;
@@ -264,7 +273,7 @@ function renderHome(post) {
   const pairs = S.pairs, s = snap(), mr = marketFilterOn() ? regime() : null;
   const tick = ticks(pairs) || {};
   const frames = Object.fromEntries(pairs.map(p => [p, homeRows(p)]));
-  const ns = s?.news_score;
+  const nw = news(), ns = nw?.score;
   const hybrid = s?.backtest_summary?.rows?.find(r => r.name === 'QuantHybridStrategy');
   const dash = S.dashUrl ? `<a class="btn ghost" href="${esc(S.dashUrl)}" target="_blank" rel="noopener">Mở dashboard trên Mac ↗</a>`
                          : `<a class="btn ghost" href="#" data-act="focus-dash">Mở dashboard trên Mac ↗</a>`;
@@ -279,7 +288,7 @@ function renderHome(post) {
       <b>% rủi ro</b> bạn đặt. Mọi tín hiệu đều kiểm chứng được bằng backtest.</p>
       <div class="pills"><span class="pill"><span class="dot ${Object.keys(tick).length ? 'on' : 'warn'}"></span>Bản web · dữ liệu trực tiếp Binance${T(TIPS.web_pill, { down: true })}</span>
         <span class="pill">🕒 ${esc(session())}${T(TIPS.session, { down: true })}</span>
-        <span class="pill">📰 Tin tức: ${ns == null ? 'không có dữ liệu' : esc(labelFor(ns))}${T(TIPS.news + (s ? ` Cập nhật lúc ${snapAge(s)}.` : ''), { down: true })}</span>
+        <span class="pill">📰 Tin tức: ${ns == null ? 'không có dữ liệu' : esc(labelFor(ns))}${T(TIPS.news + (nw ? ` (${newsWhen(nw)})` : ''), { down: true })}</span>
         ${mr ? `<span class="pill"><span class="dot ${mr.up ? 'on' : 'off'}"></span>BTC ${mr.up ? 'trên' : 'dưới'} SMA200 ngày (${sg(mr.gap, 1)}%) · ${mr.up ? 'bot được mở Long' : 'bot đứng ngoài lệnh Long'}${T(TIPS.mkt, { down: true })}</span>` : ''}</div>
       <div class="cta"><a class="btn primary" href="#tin-hieu" data-act="to-signals">Xem tín hiệu hôm nay ↓</a>${dash}</div>
     </div>
@@ -459,7 +468,7 @@ function renderAdvisor(post) {
       <div class="score ${trendCls(best.score)}">${sg(best.score, 0)}</div><div class="strat" style="margin:6px 0 0">${esc(best.stance)}</div></div>
     <div class="card"><div class="strat" style="margin:0">Tin tức${T(TIPS.news, { down: true, right: true })}</div>
       <div class="score ${trendCls(ns)}">${sg(ns, 0)}</div><div class="strat" style="margin:8px 0 0">${esc(labelFor(ns))}</div>
-      <div class="evidence">Bot chặn lệnh Long khi ≤ −4${s ? ` · tin lúc ${snapAge(s)}` : ''}</div></div>
+      <div class="evidence">Bot chặn lệnh Long khi ≤ −4 · ${newsWhen(news())}</div></div>
   </div>`);
 
   out.push(section('Đánh giá &amp; chiến lược từng coin', 'Điểm = 35% xu hướng + 20% động lượng + 20% định giá (Z) + 10% độ ổn định (biến động thấp) + 15% tin tức. Xanh = ủng hộ mua, đỏ = bất lợi.'));
@@ -624,20 +633,22 @@ function renderRisk(post) {
 
 /* ------------------------------------------------------------------ TAB TIN TỨC */
 function renderNews() {
-  const s = snap();
-  if (!s) return loading() ? '<div class="loading">Đang tải tin...</div>' : emptyState('📡', 'Chưa có dữ liệu tin tức', 'Trên Mac chạy lệnh dưới đây để xuất tin cho bản web.', './run.sh web-data');
-  const news = s.news || [];
-  if (!news.length) return emptyState('📡', 'Không kết nối được nguồn tin', 'Lần xuất dữ liệu gần nhất không lấy được tin.', './run.sh web-data');
-  const score = s.news_score ?? 0;
-  return section('📰 Tin tức &amp; tâm lý thị trường', `Tin mới nhất từ CoinDesk và CoinTelegraph, chấm điểm tăng/giảm theo từ khoá. Cập nhật lúc <b>${snapAge(s)}</b> (máy Mac xuất bằng <code>./run.sh web-data</code>).`, 'Bot chặn lệnh Long khi điểm tổng ≤ −4')
-    + `<div class="mgrid" style="--n:3">${metric('Tin tích cực', String(news.filter(n => n.score > 0).length), '', { help: 'Số tin có nhiều từ khoá tích cực hơn tiêu cực (surge, rally, ETF, approve, record…).' })}
-      ${metric('Tin tiêu cực', String(news.filter(n => n.score < 0).length), '', { help: 'Số tin có nhiều từ khoá tiêu cực hơn (crash, hack, ban, SEC, lawsuit, dump, fear…).' })}
+  const n = news();
+  if (!n) return loading() ? '<div class="loading">Đang lấy tin mới nhất...</div>'
+    : emptyState('📡', 'Không kết nối được nguồn tin', 'Kiểm tra mạng rồi tải lại trang.');
+  const items = n.items, score = n.score;
+  const when = t => { const d = Date.parse(t); return Number.isFinite(d) ? U.vnDate(d) : t; };
+  return section('📰 Tin tức &amp; tâm lý thị trường', 'Tin mới nhất từ CoinDesk và CoinTelegraph, chấm điểm tăng/giảm theo từ khoá.', 'Bot chặn lệnh Long khi điểm tổng ≤ −4')
+    + `<div class="mgrid" style="--n:3">${metric('Tin tích cực', String(items.filter(x => x.score > 0).length), '', { help: 'Số tin có nhiều từ khoá tích cực hơn tiêu cực (surge, rally, ETF, approve, record…).' })}
+      ${metric('Tin tiêu cực', String(items.filter(x => x.score < 0).length), '', { help: 'Số tin có nhiều từ khoá tiêu cực hơn (crash, hack, ban, SEC, lawsuit, dump, fear…).' })}
       ${metric('Điểm tổng', sg(score, 0), labelFor(score), { help: 'Số tin tích cực − số tin tiêu cực. Điểm ≤ −4 thì bot ngừng mở lệnh Long mới. Chấm theo từ khoá nên chỉ là nhiệt kế thô.' })}</div>`
-    + `<div class="grid wide" style="margin-top:14px">${news.map(n => {
-      const kind = n.score > 0 ? 'long' : n.score < 0 ? 'short' : 'wait';
-      return `<a class="card news" href="${esc(n.link)}" target="_blank" rel="noopener"><div class="card-head"><span class="src">${esc(n.source)}</span>${badge(labelFor(n.score), kind)}</div>
-        <span class="t">${esc(n.title)}</span><span class="time">🕒 ${esc(n.published)}</span></a>`;
-    }).join('')}</div>`;
+    + `<div class="grid wide" style="margin-top:14px">${items.map(x => {
+      const kind = x.score > 0 ? 'long' : x.score < 0 ? 'short' : 'wait';
+      return `<a class="card news" href="${esc(x.link)}" target="_blank" rel="noopener"><div class="card-head"><span class="src">${esc(x.source)}</span>${badge(labelFor(x.score), kind)}</div>
+        <span class="t">${esc(x.title)}</span><span class="time">🕒 ${esc(when(x.published))}</span></a>`;
+    }).join('')}</div>`
+    + caption(n.live ? `🟢 Tự cập nhật mỗi 5 phút · ${newsWhen(n)} (giờ Việt Nam).`
+                     : `🟠 Chưa đọc được tin trực tiếp — đang dùng ${newsWhen(n)}. Trang tự thử lại sau 5 phút.`);
 }
 
 /* ------------------------------------------------------------------ TAB BOT */

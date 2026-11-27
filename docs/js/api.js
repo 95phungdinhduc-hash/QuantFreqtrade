@@ -86,3 +86,36 @@ export async function snapshot() {
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
+
+/* ------------------------------------------------------------------ tin tức (giống quant_core/market_context.py) */
+// CoinDesk/CoinTelegraph không cho trình duyệt đọc RSS trực tiếp (CORS) -> đọc qua rss2json.com (chỉ gửi địa chỉ RSS công khai)
+const FEEDS = { CoinDesk: 'https://www.coindesk.com/arc/outboundfeeds/rss/', CoinTelegraph: 'https://cointelegraph.com/rss' };
+const BULLISH = ['surge', 'jump', 'bull', 'high', 'gain', 'approve', 'etf', 'buy', 'rally', 'soar', 'upgrade', 'adoption', 'record'];
+const BEARISH = ['drop', 'crash', 'bear', 'low', 'hack', 'ban', 'sec', 'lawsuit', 'fall', 'plunge', 'dump', 'fear', 'inflation', 'cpi'];
+// khớp TỪ NGUYÊN VẸN (+ đuôi s/es/d/ed/ing): "security" không bị đếm là "sec", "below" không là "low"
+const wordRe = words => new RegExp(`\\b(?:${[...words].sort((a, b) => b.length - a.length).join('|')})(?:s|es|d|ed|ing)?\\b`, 'g');
+const BULL_RE = wordRe(BULLISH), BEAR_RE = wordRe(BEARISH);
+
+/** >0 tích cực, <0 tiêu cực (số từ khoá tăng − số từ khoá giảm) — giống market_context.score_text */
+export function scoreText(text) {
+  const t = text.toLowerCase();
+  return (t.match(BULL_RE) || []).length - (t.match(BEAR_RE) || []).length;
+}
+/** Tổng điểm thị trường = số tin tốt − số tin xấu — giống news_sentiment_score */
+export const newsSentiment = items => items.reduce((s, i) => s + Math.sign(i.score), 0);
+
+/** 8 tin mới nhất mỗi nguồn, đã chấm điểm (tiêu đề + 200 ký tự tóm tắt, giống bot) */
+export async function liveNews(perFeed = 8) {
+  const res = await Promise.allSettled(Object.entries(FEEDS).map(async ([source, url]) => {
+    const d = await getJSON(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`, 15000);
+    if (d.status !== 'ok') throw new Error(d.message || 'rss2json lỗi');
+    return d.items.slice(0, perFeed).map(e => ({
+      source, title: e.title, link: e.link,
+      published: e.pubDate ? new Date(e.pubDate.replace(' ', 'T') + 'Z').toISOString() : '',
+      score: scoreText(`${e.title} ${(e.description || '').slice(0, 200)}`),
+    }));
+  }));
+  const items = res.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+  if (!items.length) throw new Error('Không lấy được tin');
+  return items;
+}

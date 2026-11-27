@@ -299,7 +299,12 @@ cmd_weekly() {
   "$ROOT/run.sh" download 10
   "$ROOT/run.sh" download-futures 10
   FREQTRADE__TELEGRAM__ENABLED=false "$ROOT/run.sh" backtest-all
-  echo "===== XONG — kết quả mới đã có trên dashboard (tab 📊 Backtest, 🧭 Tư vấn) ====="
+  # kiểm chứng theo giai đoạn (mỗi bản ~10–20 phút): có bộ lọc thị trường + không lọc để so sánh
+  "$ROOT/run.sh" validate || echo "[!] walk-forward lỗi (xem ở trên)"
+  FREQTRADE__QUANT__MARKET_FILTER=false "$ROOT/run.sh" validate --out user_data/walk_forward_nofilter.json \
+    || echo "[!] walk-forward (không lọc) lỗi"
+  "$ROOT/run.sh" web-data push || echo "[!] Không đưa được kết quả lên bản web (xem lỗi ở trên)"
+  echo "===== XONG — kết quả mới đã có trên dashboard và bản web (tab 📊 Backtest, 🧭 Tư vấn) ====="
 }
 
 write_plist() {  # $1 = label, $2 = lệnh, $3 = khối XML lịch chạy
@@ -363,7 +368,7 @@ Cách dùng: ./run.sh <lệnh> [tham số thêm cho freqtrade]
     stop               Tắt mọi thứ đã bật bằng start     (stop hybrid = chỉ tắt bot Hybrid)
     restart            Tắt rồi bật lại
     logs [tên]         Xem log trực tiếp, ví dụ: ./run.sh logs hybrid   (Ctrl + C để thoát)
-    weekly             Tải dữ liệu mới + backtest-all (việc hằng tuần)
+    weekly             Tải dữ liệu mới + backtest-all + walk-forward + đưa lên bản web (việc hằng tuần)
     autostart on|off   Tự bật khi mở máy + weekly mỗi Chủ nhật 8:00 + tự bật lại bot bị tắt (5 phút/lần)
     watchdog           Kiểm tra 1 lần: bot chết/treo thì bật lại, báo máy ngủ / mất mạng (autostart chạy 5 phút/lần)
     readiness          Chấm từng điều kiện trước khi dùng tiền thật (bằng chứng, an toàn, bảo mật)
@@ -376,7 +381,7 @@ Cách dùng: ./run.sh <lệnh> [tham số thêm cho freqtrade]
     import             Chuyển dữ liệu từ ../QuantTradingSystem/quant_data.db (chỉ đọc)
     download [ngày]    Tải nến Spot mới từ Binance (mặc định 365 ngày, 15m + 1h + 4h)
     download-futures [ngày]  Tải nến Futures + funding rate (cho backtest-futures)
-    web-data [push]    Xuất tin tức + backtest cho bản web (docs/data); thêm 'push' để đưa lên GitHub Pages
+    web-data [push]    Xuất backtest + tin cho bản web (docs/data); 'push' đưa lên GitHub. weekly tự chạy lệnh này
 
   NGHIÊN CỨU
     backtest           Backtest so sánh QuantZScoreStrategy (gốc) vs QuantHybridStrategy (nâng cấp)
@@ -427,9 +432,19 @@ main() {
         web-data)
           "$PY" tools/export_web_data.py || exit 1
           if [[ "${1:-}" == push ]]; then
-            git add docs/data/snapshot.json docs/css/theme.css docs/js/fx.js
-            if git diff --cached --quiet; then echo "Không có gì mới để đưa lên."
-            else git commit -q -m "web: cập nhật dữ liệu tin tức + backtest" && git push -q && echo "Đã đưa lên GitHub — trang web cập nhật sau ~1 phút."; fi
+            local files=(docs/data/snapshot.json docs/css/theme.css docs/js/fx.js)
+            # chỉ đẩy khi nhánh main không có commit nào khác chưa đẩy -> không vô tình đưa thay đổi khác lên GitHub
+            git fetch -q origin main 2>/dev/null || true
+            if [[ "$(git rev-parse --abbrev-ref HEAD)" != main || -n "$(git rev-list origin/main..HEAD 2>/dev/null)" ]]; then
+              echo "[!] Nhánh hiện tại không phải main hoặc còn commit chưa đẩy — bỏ qua, hãy đẩy bằng tay."; exit 0
+            fi
+            if git diff --quiet HEAD -- "${files[@]}" && [[ -z "$(git ls-files --others --exclude-standard -- "${files[@]}")" ]]; then
+              echo "Không có gì mới để đưa lên."
+            else
+              git add -- "${files[@]}"
+              git commit -q -m "web: cập nhật dữ liệu backtest + tin tức" -- "${files[@]}" && git push -q origin main \
+                && echo "Đã đưa lên GitHub — trang web cập nhật sau ~1 phút."
+            fi
           else
             echo "Xem thử xong thì chạy: ./run.sh web-data push"
           fi ;;
