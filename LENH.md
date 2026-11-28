@@ -91,6 +91,7 @@ Chi tiết từng giai đoạn (có/không lọc): dashboard → tab 📊 Backte
 | **Theo dõi** | `./run.sh status` | Cái gì đang chạy |
 | | `./run.sh trades` · `trades-futures` | Lịch sử lệnh bot Hybrid / Futures |
 | **Khác** | `./run.sh alert --once` | Alert bot quét thử 1 lần |
+| **Telegram** | `/tomtat` `/btc` `/eth` `/sol` `/bnb` `/coin XRP` `/lenh` `/trangthai` | Nhắn cho alert bot để hỏi (bot vẫn tự gửi tín hiệu + tóm tắt 8:00) |
 | **Khác** | `./run.sh alert --summary-now` | Gửi ngay tin tóm tắt 4 coin (bình thường tự gửi mỗi sáng 8:00) |
 | | `./run.sh alert --no-market-filter` | Alert bot báo cả tín hiệu ngược bộ lọc thị trường |
 | | `./run.sh ui` | Cài lại giao diện web FreqUI |

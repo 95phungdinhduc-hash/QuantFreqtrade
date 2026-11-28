@@ -277,3 +277,66 @@ def test_alert_morning_summary(tmp_path, monkeypatch):
     ab.record_signal("ETH/USDT", "SHORT")
     assert ab.maybe_send_summary(rows, down, "1h", 8, force=True) and "ETH 1" in out[0]
     assert ab.load_state()["summary_date"] == datetime.now(ab.market_context.VN_TZ).strftime("%Y-%m-%d")
+
+
+def test_alert_telegram_commands(monkeypatch):
+    import sys
+    import time as _time
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "alert_bot"))
+    import alert_bot as ab
+
+    cfg = {"pairs": ["BTC/USDT", "ETH/USDT"], "timeframe": "1h", "window": 50, "legacy": False,
+           "use_filter": True, "summary_hour": 8}
+    seen = []
+
+    def fake_analyze(sym, *a):
+        seen.append(sym)
+        if sym == "BAD/USDT":
+            raise ValueError("binance does not have market symbol BAD/USDT")
+        return {"sym": sym, "price": 100.0, "z": 0.5, "gap": 0.2, "adf": 0.1, "chg24": 1.0, "status": "none"}, None
+
+    monkeypatch.setattr(ab, "analyze", fake_analyze)
+    monkeypatch.setattr(ab.market_context, "btc_regime", lambda: {"up": False, "gap": -15.0})
+    monkeypatch.setattr(ab.settings, "get_user_settings", lambda *a, **k: (1000.0, 1.5))
+    monkeypatch.setattr(ab, "load_state", lambda: {})
+
+    assert "/tomtat" in ab.handle_command("/start", cfg) and "/btc /eth" in ab.handle_command("/help", cfg)
+    assert "TÓM TẮT" in ab.handle_command("/tomtat@QuantBot", cfg) and seen == ["BTC/USDT", "ETH/USDT"]
+    assert "*ETH/USDT (1h)*" in ab.handle_command("eth", cfg)                 # gõ không có dấu /
+    assert "*XRP/USDT" in ab.handle_command("/coin xrpusdt", cfg)
+    assert "Không lấy được dữ liệu BAD/USDT" in ab.handle_command("/coin bad", cfg)
+    assert "ví dụ" in ab.handle_command("/coin", cfg)
+    assert "chưa hiểu" in ab.handle_command("/abc", cfg) and ab.handle_command("   ", cfg) is None
+
+    # chỉ trả lời đúng chat của bạn, bỏ tin cũ; trả lời theo lệnh không gửi kèm "BÁO ĐỘNG"
+    monkeypatch.setattr(ab.settings, "TELEGRAM_BOT_TOKEN", "x")
+    monkeypatch.setattr(ab.settings, "TELEGRAM_CHAT_ID", "42")
+    now = _time.time()
+    updates = [{"update_id": 1, "message": {"chat": {"id": 42}, "date": now, "text": "/help"}},
+               {"update_id": 2, "message": {"chat": {"id": 99}, "date": now, "text": "/help"}},      # người lạ
+               {"update_id": 3, "message": {"chat": {"id": 42}, "date": now - 3600, "text": "/help"}}]  # tin cũ
+    calls = []
+
+    class Stop(Exception):
+        pass
+
+    def fake_api(method, **p):
+        calls.append((method, p.get("offset")))
+        if method == "getUpdates":
+            if p.get("offset"):
+                raise Stop
+            return {"result": updates}
+        return {}
+
+    replies = []
+    monkeypatch.setattr(ab, "tg_api", fake_api)
+    monkeypatch.setattr(ab, "send_telegram", lambda m, **k: replies.append((m, k)))
+    monkeypatch.setattr(ab.time, "sleep", lambda s: (_ for _ in ()).throw(Stop()))
+    try:
+        ab.listen_commands(cfg)
+    except Stop:
+        pass
+    assert calls[0][0] == "setMyCommands" and ("getUpdates", 4) in calls
+    assert len(replies) == 1 and "Lệnh của alert bot" in replies[0][0] and replies[0][1]["tag"] == "💬 TRẢ LỜI"
